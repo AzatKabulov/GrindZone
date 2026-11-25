@@ -1,21 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, TextInput, View, type TextInputInstance } from 'react-native';
 
 import { haptic } from '@/lib/haptics';
 import { fonts, useTheme } from '@/theme';
 import { Press, Txt } from './ui';
 
-/** One input to add something fast: type, hit return. */
+/** One input to add something fast: type, hit return (or the plus). */
 export function QuickAdd({ placeholder, onAdd }: { placeholder: string; onAdd: (title: string) => void }) {
   const { c, accent } = useTheme();
   const [text, setText] = useState('');
+  const input = useRef<TextInputInstance>(null);
   const submit = () => {
     const title = text.trim();
     if (!title) return;
     onAdd(title);
     haptic.medium();
     setText('');
+  };
+  // The plus adds what you typed; with nothing typed it opens the keyboard.
+  const onPlus = () => {
+    if (text.trim()) return submit();
+    haptic.tap();
+    input.current?.focus();
   };
   return (
     <View
@@ -31,8 +38,11 @@ export function QuickAdd({ placeholder, onAdd }: { placeholder: string; onAdd: (
         borderColor: c.border,
       }}
     >
-      <Ionicons name="add" size={22} color={accent} />
+      <Pressable onPress={onPlus} hitSlop={12} accessibilityRole="button" accessibilityLabel="Add">
+        <Ionicons name="add" size={22} color={accent} />
+      </Pressable>
       <TextInput
+        ref={input}
         value={text}
         onChangeText={setText}
         onSubmitEditing={submit}

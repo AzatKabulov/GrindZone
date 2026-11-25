@@ -47,7 +47,7 @@ Most productivity apps split the day across separate tools: one for to-dos, one 
     <td align="center"><img src="docs/screenshots/habits.png" width="200" alt="Habits" /><br /><sub><b>Habits</b>: one-tap check-in and streaks</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/peek.png" width="200" alt="Task preview" /><br /><sub><b>Press and hold</b>: blurred preview with steps</sub></td>
+    <td align="center"><img src="docs/screenshots/peek.png" width="200" alt="Task preview" /><br /><sub><b>Hold</b>: drag to reorder, or let go for a preview</sub></td>
     <td align="center"><img src="docs/screenshots/focus.png" width="200" alt="Focus timer" /><br /><sub><b>Focus</b>: Pomodoro that keeps running in the background</sub></td>
     <td align="center"><img src="docs/screenshots/reward.png" width="200" alt="Reward toast" /><br /><sub><b>Rewards</b>: a new quote for every finished task</sub></td>
     <td align="center"><img src="docs/screenshots/day-won.png" width="200" alt="Day won" /><br /><sub><b>Day won</b>: every task done</sub></td>
@@ -65,10 +65,10 @@ Most productivity apps split the day across separate tools: one for to-dos, one 
 | Area | What it does |
 |---|---|
 | **Today** | Your line for the day (tap to write your own, or get a new one each day), a progress ring, a streak counter, a **GitHub-style activity heatmap**, a "now / next" schedule card with a live progress bar, and today's tasks with quick add. |
-| **Tasks** | One list grouped into Overdue, Today, Upcoming and Someday. Each task can have an **emoji**, a **priority** (High / Medium / Low), a due date, a linked goal, notes and a **checklist of steps**. |
-| **Task preview** | Press and hold any task: the screen blurs, the card zooms in, and you can tick off or add steps, start a focus session on it, mark it done or delete it without leaving the list. |
+| **Tasks** | One list grouped into Overdue, Today, Upcoming and Someday. Each task can have an **emoji**, a **priority** shown as an emoji on the right (🔥 high · ⚡ medium · 💤 low), a due date, a linked goal, notes and a **checklist of steps**. |
+| **Press and hold** | Hold a task and the row lifts. **Drag** to put it anywhere in the list (dated tasks stay within their day), or **let go** for a preview: the screen blurs and the card opens in the middle of the screen, where you can tick off or add steps, start a focus session, mark it done or delete it. |
 | **Plan** | A week strip and a 24-hour timeline. Tap an hour to create a time block, set **start and end to the exact minute** (native iOS wheel) or pick a preset length. Five colour-coded kinds (Work, Training, Learning, Rest, Personal), a live "now" line, and **copy yesterday's plan** for an empty day. |
-| **Habits** | Daily habits with a one-tap check for today, the last 7 days at a glance (tap any day to fix it), the current streak, and a history page per habit. |
+| **Habits** | Daily habits with a one-tap check for today, the current week from Monday to Sunday (tap any past day to fix it), the current streak, and a history page per habit. |
 | **Goals** | A title, a "why", a deadline and steps (linked tasks). Progress is calculated from finished steps. Achieving a goal triggers a full-screen celebration. |
 | **Focus** | Pomodoro with 15 / 25 / 45 / 60-minute sessions and 5 / 10 / 15-minute breaks, plus pause, reset and skip. The timer survives the app being backgrounded or the phone being locked, and **local notifications** fire when a session or break ends. It can be linked to a task. |
 | **Notes** | A full-page notes list with pinning, autosave and search. |
@@ -132,6 +132,7 @@ Every table also has `id` (client-generated UUID), `user_id`, `created_at`, `upd
 
 - **Background-safe timer.** The focus timer stores an absolute `endsAt` timestamp instead of counting ticks, so it stays accurate after the app is suspended or the phone is locked. Local notifications for "focus done" and "break over" are scheduled when a session starts and cancelled when it's paused or reset.
 - **Animations without dropped frames.** Checkbox pops, progress rings, the long-press preview and celebration overlays run on the UI thread with Reanimated 4. When you tick a task, the checkbox animates first and the store update follows about 380 ms later, so rows don't disappear mid-animation.
+- **Drag to reorder without jank.** One long-press gesture (Gesture Handler 3 + Reanimated worklets on the UI thread) either opens the preview or starts a drag. Rows are positioned from a shared order and their measured heights, so the order shown while dragging is exactly the order that gets saved and rows never jump on drop. Moving a task usually writes a single row: it takes a `sort_order` between its new neighbours.
 - **Derived state, not duplicated state.** Streaks, the activity heatmap (tasks, blocks, notes, habits, focus sessions and goals per day), goal progress and the "now / next" block are pure selectors over the store, so nothing can drift out of sync.
 - **Versioned on-device schema.** The persisted store has a `version` and a `migrate` step, so updates never wipe data already on the device.
 - **Over-the-air delivery.** `runtimeVersion` follows the SDK version, so every `eas update` reaches phones running Expo Go with no native build or App Store review.
@@ -205,14 +206,14 @@ src/
 │   ├── settings.tsx      # Profile, stats, theme, account
 │   ├── sign-in.tsx       # Auth
 │   └── _layout.tsx       # Fonts, auth guard, global hosts (rewards, preview, focus engine)
-├── components/           # UI kit, TaskRow, Heatmap, ProgressRing, TaskPeek, pickers, TabBar…
+├── components/           # UI kit, TaskRow, ReorderableTasks, Heatmap, ProgressRing, TaskPeek, pickers…
 ├── store/
 │   ├── data.ts           # Persisted local database (tables, dirty set, cursors, migrations)
 │   ├── sync.ts           # Push/pull sync engine
 │   ├── selectors.ts      # Streaks, activity, progress, schedule (pure functions)
 │   ├── actions.ts        # Domain actions + reward triggers
 │   ├── focus.ts          # Pomodoro state machine
-│   └── auth.ts, settings.ts, fx.ts, peek.ts
+│   └── auth.ts, settings.ts, fx.ts, peek.ts, drag.ts
 ├── lib/                  # Dates, quotes, categories, haptics, notifications, Supabase client
 └── theme/                # Colour tokens (dark/light), accents, typography
 supabase/migrations/      # Postgres schema, RLS policies, sync trigger

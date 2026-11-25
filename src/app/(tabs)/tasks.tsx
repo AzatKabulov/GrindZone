@@ -3,12 +3,16 @@ import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 
 import { DoneToggle, QuickAdd } from '@/components/ListBits';
+import { ReorderableTasks } from '@/components/ReorderableTasks';
 import { TaskRow } from '@/components/TaskRow';
 import { IconBtn, Screen, ScreenTitle, Section, TAB_BAR_SPACE, Txt } from '@/components/ui';
 import { todayKey } from '@/lib/date';
 import { useData, type Task } from '@/store/data';
-import { alive, sortTasks } from '@/store/selectors';
+import { useDrag } from '@/store/drag';
+import { alive, sortTasks, sortTasksByDue } from '@/store/selectors';
 import { useTheme } from '@/theme';
+
+const byDay = (t: Task) => t.due_date ?? '';
 
 /** Every open task in one list: Overdue → Today → Upcoming → Someday. Finished ones stay tucked away. */
 export default function TasksScreen() {
@@ -16,17 +20,18 @@ export default function TasksScreen() {
   const tasks = useData((s) => s.tasks);
   const create = useData((s) => s.create);
   const [showDone, setShowDone] = useState(false);
+  const dragging = useDrag((s) => s.dragging);
   const today = todayKey();
 
   const { sections, done, openCount } = useMemo(() => {
     const list = alive(tasks);
     const open = list.filter((t) => !t.done);
-    const byDate = (a: Task, b: Task) => (a.due_date! < b.due_date! ? -1 : a.due_date! > b.due_date! ? 1 : sortTasks(a, b));
-    const sections: { title: string; items: Task[]; showDue: boolean }[] = [
-      { title: 'OVERDUE', items: open.filter((t) => t.due_date && t.due_date < today).sort(byDate), showDue: true },
-      { title: 'TODAY', items: open.filter((t) => t.due_date === today).sort(sortTasks), showDue: false },
-      { title: 'UPCOMING', items: open.filter((t) => t.due_date && t.due_date > today).sort(byDate), showDue: true },
-      { title: 'SOMEDAY', items: open.filter((t) => !t.due_date).sort(sortTasks), showDue: false },
+    // Dated sections keep their days in order; you can rearrange tasks within the same day.
+    const sections: { title: string; items: Task[]; showDue: boolean; byDay: boolean }[] = [
+      { title: 'OVERDUE', items: open.filter((t) => t.due_date && t.due_date < today).sort(sortTasksByDue), showDue: true, byDay: true },
+      { title: 'TODAY', items: open.filter((t) => t.due_date === today).sort(sortTasks), showDue: false, byDay: false },
+      { title: 'UPCOMING', items: open.filter((t) => t.due_date && t.due_date > today).sort(sortTasksByDue), showDue: true, byDay: true },
+      { title: 'SOMEDAY', items: open.filter((t) => !t.due_date).sort(sortTasks), showDue: false, byDay: false },
     ];
     const done = list
       .filter((t) => t.done)
@@ -42,6 +47,7 @@ export default function TasksScreen() {
           contentContainerStyle={{ padding: 20, paddingBottom: TAB_BAR_SPACE }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          scrollEnabled={!dragging}
         >
           <ScreenTitle
             kicker={openCount ? `${openCount} OPEN` : 'ALL CLEAR'}
@@ -60,11 +66,7 @@ export default function TasksScreen() {
           {sections.map((s) => (
             <View key={s.title} style={{ marginTop: 24 }}>
               <Section label={s.title} count={s.items.length} style={{ marginBottom: 10 }} />
-              <View style={{ gap: 8 }}>
-                {s.items.map((t) => (
-                  <TaskRow key={t.id} task={t} showDue={s.showDue} />
-                ))}
-              </View>
+              <ReorderableTasks tasks={s.items} showDue={s.showDue} groupOf={s.byDay ? byDay : undefined} />
             </View>
           ))}
 

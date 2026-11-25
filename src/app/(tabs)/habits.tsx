@@ -4,13 +4,13 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { Empty, IconBtn, Press, Screen, ScreenTitle, TAB_BAR_SPACE, Txt } from '@/components/ui';
-import { addDays, todayKey, weekdayShort } from '@/lib/date';
+import { addDays, startOfWeek, todayKey, weekdayShort } from '@/lib/date';
 import { toggleHabit } from '@/store/actions';
 import { useData, type Habit } from '@/store/data';
 import { alive, habitStreak } from '@/store/selectors';
 import { alpha, useTheme } from '@/theme';
 
-/** Daily habits: one tap to check today, the last 7 days at a glance. */
+/** Daily habits: one tap to check today, this week (Mon → Sun) at a glance. */
 export default function HabitsScreen() {
   const habits = useData((s) => s.habits);
   const today = todayKey();
@@ -53,7 +53,9 @@ function HabitCard({ habit, today }: { habit: Habit; today: string }) {
   const checks = new Set(habit.checks ?? []);
   const doneToday = checks.has(today);
   const streak = habitStreak(habit, today);
-  const week = Array.from({ length: 7 }, (_, i) => addDays(today, i - 6));
+  // This week, Monday first. Days that haven't happened yet can't be checked.
+  const monday = startOfWeek(today);
+  const week = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 
   return (
     <Press
@@ -103,8 +105,15 @@ function HabitCard({ habit, today }: { habit: Habit; today: string }) {
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
         {week.map((d) => {
           const on = checks.has(d);
+          const future = d > today;
           return (
-            <Pressable key={d} hitSlop={4} onPress={() => toggleHabit(habit.id, d)} style={{ alignItems: 'center', gap: 5 }}>
+            <Pressable
+              key={d}
+              hitSlop={4}
+              disabled={future}
+              onPress={() => toggleHabit(habit.id, d)}
+              style={{ alignItems: 'center', gap: 5, opacity: future ? 0.35 : 1 }}
+            >
               <View
                 style={{
                   width: 30,
