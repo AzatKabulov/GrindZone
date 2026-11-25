@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import Animated, {
@@ -10,13 +9,14 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { alpha, useTheme } from '@/theme';
+import { useTheme } from '@/theme';
+import { Icon } from './Icon';
 
-/** Square check with a punchy pop + ring burst when completed. */
+/** Round check like Apple Reminders: hollow ring → filled circle with a springy checkmark. */
 export function Checkbox({
   checked,
   onToggle,
-  size = 26,
+  size = 24,
   color,
 }: {
   checked: boolean;
@@ -24,7 +24,7 @@ export function Checkbox({
   size?: number;
   color?: string;
 }) {
-  const { c, accent, onAccent } = useTheme();
+  const { c, accent } = useTheme();
   const tint = color ?? accent;
   const fill = useSharedValue(checked ? 1 : 0);
   const scale = useSharedValue(1);
@@ -36,58 +36,61 @@ export function Checkbox({
       first.current = false;
       return;
     }
-    fill.value = withTiming(checked ? 1 : 0, { duration: 160 });
+    fill.set(withTiming(checked ? 1 : 0, { duration: 180 }));
     if (checked) {
-      scale.value = withSequence(
-        withTiming(0.72, { duration: 80 }),
-        withSpring(1, { damping: 7, stiffness: 380 }),
-      );
-      ring.value = 0;
-      ring.value = withTiming(1, { duration: 520 });
+      scale.set(withSequence(withTiming(0.8, { duration: 90 }), withSpring(1, { damping: 8, stiffness: 340 })));
+      ring.set(0);
+      ring.set(withTiming(1, { duration: 480 }));
     } else {
-      scale.value = withSequence(withTiming(0.9, { duration: 70 }), withSpring(1));
+      scale.set(withSequence(withTiming(0.9, { duration: 70 }), withSpring(1)));
     }
   }, [checked, fill, scale, ring]);
 
-  const boxStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    backgroundColor: fill.value > 0.5 ? tint : 'transparent',
-    borderColor: fill.value > 0.5 ? tint : c.borderStrong,
-  }));
-  const checkStyle = useAnimatedStyle(() => ({
+  const outer = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const dot = useAnimatedStyle(() => ({
     opacity: fill.value,
-    transform: [{ scale: interpolate(fill.value, [0, 1], [0.4, 1]) }],
+    transform: [{ scale: interpolate(fill.value, [0, 1], [0.3, 1]) }],
   }));
-  const ringStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(ring.value, [0, 0.1, 1], [0, 0.7, 0]),
-    transform: [{ scale: interpolate(ring.value, [0, 1], [0.8, 2.1]) }],
+  const burst = useAnimatedStyle(() => ({
+    opacity: interpolate(ring.value, [0, 0.15, 1], [0, 0.5, 0]),
+    transform: [{ scale: interpolate(ring.value, [0, 1], [1, 1.9]) }],
   }));
 
   return (
-    <Pressable onPress={onToggle} hitSlop={12} style={{ width: size, height: size }}>
+    <Pressable onPress={onToggle} hitSlop={14} style={{ width: size, height: size }}>
       <Animated.View
         pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFill,
-          { borderRadius: size * 0.3, borderWidth: 2, borderColor: alpha(tint, 0.9) },
-          ringStyle,
-        ]}
+        style={[StyleSheet.absoluteFill, { borderRadius: size / 2, backgroundColor: tint }, burst]}
       />
       <Animated.View
         style={[
           {
             width: size,
             height: size,
-            borderRadius: size * 0.3,
-            borderWidth: 2,
+            borderRadius: size / 2,
+            borderWidth: 1.6,
+            borderColor: checked ? tint : c.label3,
             alignItems: 'center',
             justifyContent: 'center',
           },
-          boxStyle,
+          outer,
         ]}
       >
-        <Animated.View style={checkStyle}>
-          <Ionicons name="checkmark-sharp" size={size * 0.7} color={onAccent} />
+        <Animated.View
+          style={[
+            {
+              position: 'absolute',
+              width: size - 5,
+              height: size - 5,
+              borderRadius: size / 2,
+              backgroundColor: tint,
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+            dot,
+          ]}
+        >
+          <Icon name="check" size={size * 0.5} color="#FFFFFF" weight="bold" />
         </Animated.View>
       </Animated.View>
     </Pressable>

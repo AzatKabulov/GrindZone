@@ -7,14 +7,14 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "backgroundColor": "#09090A",
+    "backgroundColor": "#000000",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.grindzone.app"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#09090A",
+        "backgroundColor": "#000000",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -34,9 +34,10 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 140,
           "resizeMode": "contain",
-          "backgroundColor": "#09090A"
+          "backgroundColor": "#000000"
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }
