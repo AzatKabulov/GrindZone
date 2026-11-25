@@ -37,6 +37,18 @@
           "backgroundColor": "#09090A"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c65f044a-aba0-4cbd-9d20-df99fe481502"
+      }
+    },
+    "owner": "azatkabulov",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c65f044a-aba0-4cbd-9d20-df99fe481502"
+    }
   }
 }

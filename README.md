@@ -5,6 +5,18 @@
 
 Сделан на **Expo SDK 58** и запускается в **Expo Go** на iPhone.
 
+## Открыть на iPhone (без компьютера)
+
+1. Установи **Expo Go** из App Store.
+2. Наведи камеру iPhone на QR-код и нажми «Открыть в Expo Go»:
+
+<img src="docs/expo-go-qr.png" width="260" alt="QR-код GrindZone для Expo Go" />
+
+Или ссылка: `exp://u.expo.dev/c65f044a-aba0-4cbd-9d20-df99fe481502?channel-name=main&runtime-version=exposdk:58.0.0`
+
+Приложение загружается из облака Expo (EAS Update, проект `@azatkabulov/grindzone`, канал `main`),
+так что QR всегда открывает последнюю опубликованную версию. Опубликовать новую версию: `npm run publish`.
+
 ## Что внутри
 
 | Вкладка | Что делает |
