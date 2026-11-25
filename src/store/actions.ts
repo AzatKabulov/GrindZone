@@ -1,6 +1,6 @@
 import { nowIso, todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
-import { uuid, useData, type Block, type Subtask } from './data';
+import { uuid, useData, type Block, type Subtask, type Task } from './data';
 import { useFx } from './fx';
 import { blocksForDay, tasksForDay } from './selectors';
 
@@ -114,4 +114,30 @@ export function copyDay(from: string, to: string): number {
   );
   if (fresh.length) haptic.success();
   return fresh.length;
+}
+
+/**
+ * Move a task inside a list you see on screen (`list` = that list in its current order).
+ * Usually only the moved task changes: it takes a sort_order between its new neighbours.
+ * When the neighbours share the same value, the whole list is renumbered.
+ */
+export function moveTask(list: Task[], from: number, to: number) {
+  if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return;
+  const next = list.slice();
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  const { patch } = useData.getState();
+  const prev = next[to - 1]?.sort_order;
+  const after = next[to + 1]?.sort_order;
+  let order: number | null = null;
+  if (prev === undefined && after !== undefined) order = after - 1;
+  else if (after === undefined && prev !== undefined) order = prev + 1;
+  else if (prev !== undefined && after !== undefined && prev < after) order = (prev + after) / 2;
+  if (order !== null && order !== prev && order !== after) {
+    patch('tasks', moved.id, { sort_order: order });
+    return;
+  }
+  next.forEach((t, i) => {
+    if (t.sort_order !== i + 1) patch('tasks', t.id, { sort_order: i + 1 });
+  });
 }

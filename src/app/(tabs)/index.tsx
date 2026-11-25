@@ -10,6 +10,7 @@ import { FocusPill } from '@/components/FocusEngine';
 import { Heatmap } from '@/components/Heatmap';
 import { DoneToggle, QuickAdd } from '@/components/ListBits';
 import { ProgressRing } from '@/components/ProgressRing';
+import { ReorderableTasks } from '@/components/ReorderableTasks';
 import { TaskRow } from '@/components/TaskRow';
 import { Button, Card, IconBtn, Press, ProgressBar, Screen, Section, TAB_BAR_SPACE, Txt } from '@/components/ui';
 import { BLOCK_CATEGORIES, blockColor } from '@/lib/categories';
@@ -18,6 +19,7 @@ import { haptic } from '@/lib/haptics';
 import { mantraOfTheDay } from '@/lib/quotes';
 import { useNow } from '@/lib/useNow';
 import { useData, type Block } from '@/store/data';
+import { useDrag } from '@/store/drag';
 import { useFocus } from '@/store/focus';
 import { activeDays, activityByDay, blockNow, blocksForDay, currentStreak, tasksForDay } from '@/store/selectors';
 import { useSettings } from '@/store/settings';
@@ -41,6 +43,7 @@ export default function TodayScreen() {
   const syncError = useSync((s) => s.status === 'error');
   const [showDone, setShowDone] = useState(false);
   const [editMantra, setEditMantra] = useState(false);
+  const dragging = useDrag((s) => s.dragging);
   useNow(30000);
 
   const today = todayKey();
@@ -64,7 +67,12 @@ export default function TodayScreen() {
   return (
     <Screen>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: TAB_BAR_SPACE }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={{ padding: 20, paddingBottom: TAB_BAR_SPACE }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={!dragging}
+        >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 6 }}>
             <Txt variant="label" color={c.text} style={{ flex: 1 }}>
               {weekday(today)} · {dayNum(today)} {monthShort(today)}
@@ -129,14 +137,12 @@ export default function TodayScreen() {
           {/* Today's tasks */}
           <Section label="TODAY'S TASKS" count={`${done.length}/${total}`} style={{ marginTop: 26, marginBottom: 12 }} />
           <QuickAdd placeholder={total ? 'Add a task…' : 'What has to get done today?'} onAdd={(title) => create('tasks', { title, due_date: today })} />
-          <View style={{ gap: 8, marginTop: 8 }}>
-            {open.map((t) => (
-              <TaskRow key={t.id} task={t} />
-            ))}
+          <View style={{ marginTop: 8 }}>
+            <ReorderableTasks tasks={open} />
           </View>
           {total === 0 ? (
             <Txt variant="small" color={c.textFaint} style={{ marginTop: 14, textAlign: 'center' }}>
-              Type your first task above and hit return. Press and hold a task to preview it.
+              Type your first task above and hit return.{'\n'}Hold a task to preview it, hold and drag to move it.
             </Txt>
           ) : null}
           <View style={{ marginTop: 6 }}>

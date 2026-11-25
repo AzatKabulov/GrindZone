@@ -107,7 +107,8 @@ const FIELDS: { [K in TableName]: () => Fields<K> } = {
     goal_id: null,
     done: false,
     done_at: null,
-    sort_order: 0,
+    // Bigger than any order set by dragging, so a new task shows up at the bottom.
+    sort_order: Date.now(),
   }),
   blocks: () => ({
     date: todayKey(),

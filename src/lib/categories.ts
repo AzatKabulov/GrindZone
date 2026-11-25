@@ -29,10 +29,11 @@ export function blockColor(cat: BlockCategory, accent: string): string {
 
 export type Priority = 1 | 2 | 3;
 
-export const PRIORITIES: Record<Priority, { label: string }> = {
-  1: { label: 'HIGH' },
-  2: { label: 'MEDIUM' },
-  3: { label: 'LOW' },
+/** Shown as an emoji on the right of every open task. */
+export const PRIORITIES: Record<Priority, { label: string; emoji: string }> = {
+  1: { label: 'HIGH', emoji: '🔥' },
+  2: { label: 'MEDIUM', emoji: '⚡' },
+  3: { label: 'LOW', emoji: '💤' },
 };
 
 /** Stored on goals for older data; no longer shown in the UI. */

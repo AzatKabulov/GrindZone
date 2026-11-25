@@ -109,8 +109,7 @@ export default function TaskEditor() {
             {([1, 2, 3] as Priority[]).map((p) => (
               <Chip
                 key={p}
-                label={PRIORITIES[p].label}
-                icon={p === 1 ? 'flame' : p === 3 ? 'arrow-down' : undefined}
+                label={`${PRIORITIES[p].emoji}  ${PRIORITIES[p].label}`}
                 active={priority === p}
                 onPress={() => setPriority(p)}
                 style={{ flex: 1, justifyContent: 'center' }}

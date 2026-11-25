@@ -5,12 +5,18 @@ export function alive<T extends { deleted: boolean }>(map: Record<string, T>): T
   return Object.values(map).filter((r) => !r.deleted);
 }
 
+/** Your own order (drag to change it); new tasks go to the bottom. */
 export function sortTasks(a: Task, b: Task): number {
-  if (a.priority !== b.priority) return a.priority - b.priority;
+  if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+  return a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0;
+}
+
+/** Earliest due date first, then your own order within each day. */
+export function sortTasksByDue(a: Task, b: Task): number {
   const ad = a.due_date ?? '9999';
   const bd = b.due_date ?? '9999';
   if (ad !== bd) return ad < bd ? -1 : 1;
-  return a.created_at < b.created_at ? -1 : 1;
+  return sortTasks(a, b);
 }
 
 const byDoneDesc = (a: Task, b: Task) => ((a.done_at ?? '') < (b.done_at ?? '') ? 1 : -1);

@@ -35,20 +35,25 @@ function Peek({ taskId, origin }: { taskId: string; origin: Rect | null }) {
   const insets = useSafeAreaInsets();
 
   const cardW = width - 32;
-  const top = insets.top + 56;
+  const top = insets.top + 16;
   const p = useSharedValue(0);
+  // Where the card's centre ends up (the card + menu sit in the middle of the screen).
+  const cardCenter = useSharedValue(height / 2);
   useEffect(() => {
     p.set(withSpring(1, { damping: 19, stiffness: 190, mass: 0.9 }));
   }, [p]);
 
   // Start where the row was and grow into place.
-  const fromY = origin ? origin.y + origin.h / 2 - (top + 80) : 40;
+  const originCenter = origin ? origin.y + origin.h / 2 : null;
   const fromScale = origin ? Math.min(1, origin.w / cardW) * 0.96 : 0.9;
 
   const backdrop = useAnimatedStyle(() => ({ opacity: p.value }));
   const card = useAnimatedStyle(() => ({
     opacity: interpolate(p.value, [0, 0.25, 1], [0, 1, 1]),
-    transform: [{ translateY: interpolate(p.value, [0, 1], [fromY, 0]) }, { scale: interpolate(p.value, [0, 1], [fromScale, 1]) }],
+    transform: [
+      { translateY: interpolate(p.value, [0, 1], [originCenter === null ? 40 : originCenter - cardCenter.value, 0]) },
+      { scale: interpolate(p.value, [0, 1], [fromScale, 1]) },
+    ],
   }));
   const menu = useAnimatedStyle(() => ({
     opacity: interpolate(p.value, [0.5, 1], [0, 1], 'clamp'),
@@ -66,7 +71,7 @@ function Peek({ taskId, origin }: { taskId: string; origin: Rect | null }) {
   if (!task) return null;
 
   const meta: string[] = [];
-  if (task.priority !== 2) meta.push(`${PRIORITIES[task.priority].label} PRIORITY`);
+  meta.push(`${PRIORITIES[task.priority].emoji} ${PRIORITIES[task.priority].label}`);
   if (task.due_date) meta.push(niceLabel(task.due_date).toUpperCase());
   if (goal && !goal.deleted) meta.push(goal.title.toUpperCase());
 
@@ -112,8 +117,11 @@ function Peek({ taskId, origin }: { taskId: string; origin: Rect | null }) {
         <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.45)' : 'rgba(241,238,231,0.45)' }]} onPress={() => dismiss()} />
       </Animated.View>
 
-      <View pointerEvents="box-none" style={{ position: 'absolute', top, left: 16, right: 16, bottom: insets.bottom + 16 }}>
-        <Animated.View style={[{ maxHeight: height * 0.62 }, card]}>
+      <View pointerEvents="box-none" style={{ position: 'absolute', top, left: 16, right: 16, bottom: insets.bottom + 16, justifyContent: 'center' }}>
+        <Animated.View
+          style={[{ maxHeight: height * 0.62 }, card]}
+          onLayout={(e) => cardCenter.set(top + e.nativeEvent.layout.y + e.nativeEvent.layout.height / 2)}
+        >
           <View
             style={{
               backgroundColor: c.surface,
