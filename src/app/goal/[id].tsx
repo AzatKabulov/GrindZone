@@ -165,7 +165,7 @@ export default function GoalScreen() {
           ) : null}
         </ScrollView>
       </View>
-      <FxHost />
+      <FxHost inSheet />
     </View>
   );
 }

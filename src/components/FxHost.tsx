@@ -93,17 +93,19 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
   );
 }
 
-/** Renders the quote toast and full-screen celebrations. Mount once at the root (and inside native modals). */
-export function FxHost() {
+/** Renders the quote toast and full-screen celebrations. Mount once at the root, and inside each sheet with `inSheet`. */
+export function FxHost({ inSheet = false }: { inSheet?: boolean }) {
   const toast = useFx((s) => s.toast);
   const overlay = useFx((s) => s.overlay);
   const dismissToast = useFx((s) => s.dismissToast);
   const insets = useSafeAreaInsets();
+  // A sheet already starts below the status bar, so its toasts hug the sheet's top edge.
+  const top = inSheet ? 10 : insets.top + 8;
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
       {overlay ? <Celebration key={overlay.id} overlay={overlay} /> : null}
-      <View pointerEvents="box-none" style={{ position: 'absolute', top: insets.top + 8, left: 14, right: 14 }}>
+      <View pointerEvents="box-none" style={{ position: 'absolute', top, left: 14, right: 14 }}>
         {toast ? <ToastCard key={toast.id} toast={toast} onDismiss={dismissToast} /> : null}
       </View>
     </View>

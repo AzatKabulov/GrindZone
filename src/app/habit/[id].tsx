@@ -100,7 +100,7 @@ export default function HabitScreen() {
           {habit ? <Button label="DELETE HABIT" icon="trash-outline" variant="danger" onPress={del} /> : null}
         </ScrollView>
       </View>
-      <FxHost />
+      <FxHost inSheet />
     </View>
   );
 }
