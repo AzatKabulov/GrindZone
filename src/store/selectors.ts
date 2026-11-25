@@ -1,6 +1,5 @@
 import { addDays, isoToKey } from '@/lib/date';
-import { XP } from '@/lib/xp';
-import type { Block, Goal, Task } from './data';
+import type { Block, Goal, Habit, Note, Task } from './data';
 
 export function alive<T extends { deleted: boolean }>(map: Record<string, T>): T[] {
   return Object.values(map).filter((r) => !r.deleted);
@@ -30,39 +29,55 @@ export function blocksForDay(blocks: Record<string, Block>, day: string): Block[
     .sort((a, b) => a.start_min - b.start_min || a.end_min - b.end_min);
 }
 
-export function taskXp(t: Pick<Task, 'priority'>): number {
-  return XP.task[t.priority] ?? XP.task[2];
+export interface ActivitySources {
+  tasks: Record<string, Task>;
+  blocks: Record<string, Block>;
+  notes: Record<string, Note>;
+  habits: Record<string, Habit>;
+  goals: Record<string, Goal>;
+  /** Focus sessions finished per day (kept on this device). */
+  focus?: Record<string, number>;
 }
 
-/** XP counts everything you ever completed — deleting a finished task doesn't take XP away. */
-export function totalXp(
-  tasks: Record<string, Task>,
-  blocks: Record<string, Block>,
-  goals: Record<string, Goal>,
-): number {
-  let xp = 0;
-  for (const t of Object.values(tasks)) if (t.done) xp += taskXp(t);
-  for (const b of Object.values(blocks)) if (b.done) xp += XP.block;
-  for (const g of Object.values(goals)) if (g.status === 'achieved') xp += XP.goal;
-  return xp;
+/**
+ * How much you did each day, GitHub-style: tasks written or finished, time blocks planned,
+ * notes written, habits checked, goals achieved and focus sessions.
+ */
+export function activityByDay(src: ActivitySources): Record<string, number> {
+  const out: Record<string, number> = {};
+  const add = (k: string | null | undefined, n = 1) => {
+    if (k) out[k] = (out[k] ?? 0) + n;
+  };
+  for (const t of Object.values(src.tasks)) {
+    if (!t.deleted) add(isoToKey(t.created_at));
+    if (t.done) add(isoToKey(t.done_at));
+  }
+  for (const b of alive(src.blocks)) add(isoToKey(b.created_at));
+  for (const n of alive(src.notes)) if (n.title.trim() || n.body.trim()) add(isoToKey(n.updated_at));
+  for (const h of alive(src.habits)) for (const d of h.checks ?? []) add(d);
+  for (const g of Object.values(src.goals)) if (g.status === 'achieved') add(isoToKey(g.achieved_at));
+  for (const [d, n] of Object.entries(src.focus ?? {})) add(d, n);
+  return out;
 }
 
-/** Days (YYYY-MM-DD) on which at least one thing was completed. */
+/** Days on which you finished something (task, habit, goal or focus session) — drives the streak. */
 export function activeDays(
   tasks: Record<string, Task>,
-  blocks: Record<string, Block>,
   goals: Record<string, Goal>,
+  habits: Record<string, Habit>,
+  focus: Record<string, number> = {},
 ): Set<string> {
   const days = new Set<string>();
   for (const t of Object.values(tasks)) {
     const k = t.done ? isoToKey(t.done_at) : null;
     if (k) days.add(k);
   }
-  for (const b of Object.values(blocks)) if (b.done) days.add(b.date);
   for (const g of Object.values(goals)) {
     const k = g.status === 'achieved' ? isoToKey(g.achieved_at) : null;
     if (k) days.add(k);
   }
+  for (const h of alive(habits)) for (const d of h.checks ?? []) days.add(d);
+  for (const [d, n] of Object.entries(focus)) if (n > 0) days.add(d);
   return days;
 }
 
@@ -108,4 +123,18 @@ export function blockNow(list: Block[], nowMin: number) {
   const current = list.find((b) => b.start_min <= nowMin && nowMin < b.end_min) ?? null;
   const upcoming = list.filter((b) => b.start_min > nowMin);
   return { current, upcoming };
+}
+
+/** Streak for one habit. Today unchecked doesn't break it — the day isn't over. */
+export function habitStreak(h: Habit, today: string): number {
+  return currentStreak(new Set(h.checks ?? []), today);
+}
+
+export function habitBest(h: Habit): number {
+  return bestStreak(new Set(h.checks ?? []));
+}
+
+export function subtaskProgress(t: Task) {
+  const list = t.subtasks ?? [];
+  return { done: list.filter((s) => s.done).length, total: list.length };
 }

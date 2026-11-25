@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FieldLabel, SheetHeader, TimeStepper } from '@/components/pickers';
+import { FieldLabel, SheetHeader, TimeField } from '@/components/pickers';
 import { Button, Chip, Input, Txt } from '@/components/ui';
 import { BLOCK_CATEGORIES, BLOCK_CATEGORY_KEYS, blockColor, type BlockCategory } from '@/lib/categories';
 import { fmtDuration, fmtMin, todayKey } from '@/lib/date';
@@ -35,7 +35,7 @@ export default function BlockEditor() {
   const close = () => (router.canGoBack() ? router.back() : router.replace('/plan'));
 
   const save = () => {
-    const fields = { title: title.trim(), category, date, start_min: start, end_min: Math.max(start + 15, end), note: note.trim() };
+    const fields = { title: title.trim(), category, date, start_min: start, end_min: Math.max(start + 5, end), note: note.trim() };
     if (existing) patch('blocks', existing.id, fields);
     else create('blocks', fields);
     haptic.medium();
@@ -98,11 +98,17 @@ export default function BlockEditor() {
         </View>
 
         <View style={{ gap: 12 }}>
-          <View style={{ flexDirection: 'row' }}>
-            <TimeStepper label="STARTS AT" value={start} onChange={setStart} max={1425} />
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TimeField label="STARTS" value={start} onChange={setStart} max={1425} />
+            <TimeField
+              label="ENDS"
+              value={end}
+              onChange={(v) => setLength(Math.max(5, (v <= start ? v + 1440 : v) - start))}
+              max={1439}
+            />
           </View>
           <View>
-            <FieldLabel>HOW LONG</FieldLabel>
+            <FieldLabel>OR PICK A LENGTH</FieldLabel>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {LENGTHS.map((d) => (
                 <Chip key={d} label={fmtDuration(d)} active={length === d} onPress={() => setLength(d)} />
@@ -110,7 +116,7 @@ export default function BlockEditor() {
             </View>
           </View>
           <Txt variant="small" color={c.textDim}>
-            {fmtMin(start)} → {fmtMin(end)}
+            {fmtMin(start)} → {fmtMin(end)} · {fmtDuration(end - start).toLowerCase()}
           </Txt>
         </View>
 

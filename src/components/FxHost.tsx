@@ -21,62 +21,49 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFx, type Overlay } from '@/store/fx';
 import { alpha, fonts, useTheme } from '@/theme';
 
-/** Renders XP toasts and full-screen celebrations. Mount once at the root (and inside native modals). */
+/** Renders the quote toast and full-screen celebrations. Mount once at the root (and inside native modals). */
 export function FxHost() {
-  const toasts = useFx((s) => s.toasts);
+  const toast = useFx((s) => s.toast);
   const overlay = useFx((s) => s.overlay);
+  const dismissToast = useFx((s) => s.dismissToast);
   const insets = useSafeAreaInsets();
-  const { accent, onAccent } = useTheme();
+  const { c, accent, onAccent, isDark } = useTheme();
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
       {overlay ? <Celebration key={overlay.id} overlay={overlay} /> : null}
-      <View
-        pointerEvents="none"
-        style={{ position: 'absolute', top: insets.top + 8, left: 0, right: 0, alignItems: 'center', gap: 8 }}
-      >
-        {toasts.map((t) => (
-          <Animated.View
-            key={t.id}
-            entering={FadeInDown.springify().damping(14)}
-            exiting={FadeOutUp.duration(250)}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 10,
-              paddingVertical: 8,
-              paddingLeft: 10,
-              paddingRight: 16,
-              borderRadius: 999,
-              backgroundColor: accent,
-              shadowColor: accent,
-              shadowOpacity: 0.55,
-              shadowRadius: 18,
-              shadowOffset: { width: 0, height: 4 },
-            }}
-          >
-            <View
+      <View pointerEvents="box-none" style={{ position: 'absolute', top: insets.top + 8, left: 14, right: 14 }}>
+        {toast ? (
+          <Animated.View key={toast.id} entering={FadeInDown.springify().damping(16)} exiting={FadeOutUp.duration(220)}>
+            <Pressable
+              onPress={dismissToast}
               style={{
-                width: 26,
-                height: 26,
-                borderRadius: 13,
-                backgroundColor: alpha(onAccent, 0.14),
-                alignItems: 'center',
-                justifyContent: 'center',
+                flexDirection: 'row',
+                gap: 12,
+                padding: 14,
+                borderRadius: 18,
+                backgroundColor: isDark ? '#17140F' : '#FFFFFF',
+                borderWidth: 1,
+                borderColor: alpha(accent, 0.45),
+                shadowColor: isDark ? accent : '#000',
+                shadowOpacity: isDark ? 0.35 : 0.15,
+                shadowRadius: 22,
+                shadowOffset: { width: 0, height: 8 },
               }}
             >
-              <Ionicons name="flash" size={15} color={onAccent} />
-            </View>
-            <Text style={{ fontFamily: fonts.display, fontSize: 24, color: onAccent, marginTop: 2 }}>
-              {t.text}
-            </Text>
-            {t.sub ? (
-              <Text style={{ fontFamily: fonts.mono, fontSize: 9.5, letterSpacing: 1.4, color: alpha(onAccent, 0.75) }}>
-                {t.sub}
-              </Text>
-            ) : null}
+              <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="checkmark-sharp" size={17} color={onAccent} />
+              </View>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={{ fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.6, color: accent }}>{toast.label}</Text>
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: c.text }}>{toast.text}</Text>
+                {toast.by ? (
+                  <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: c.textDim }}>— {toast.by}</Text>
+                ) : null}
+              </View>
+            </Pressable>
           </Animated.View>
-        ))}
+        ) : null}
       </View>
     </View>
   );
@@ -93,8 +80,7 @@ function noise(seed: number, i: number, k: number): number {
 function Celebration({ overlay }: { overlay: Overlay }) {
   const { c, accent, isDark } = useTheme();
   const dismiss = useFx((s) => s.dismiss);
-  const icon =
-    overlay.kind === 'levelup' ? 'trending-up' : overlay.kind === 'goal' ? 'trophy' : 'flame';
+  const icon = overlay.kind === 'goal' ? 'trophy' : 'flame';
 
   const particles = useMemo(
     () =>
@@ -181,7 +167,8 @@ function Celebration({ overlay }: { overlay: Overlay }) {
         >
           {overlay.title}
         </Animated.Text>
-        <Text style={[styles.sub, { color: c.textDim }]}>{overlay.subtitle}</Text>
+        <Text style={[styles.quote, { color: c.text }]}>“{overlay.quote.text}”</Text>
+        {overlay.quote.by ? <Text style={[styles.sub, { color: c.textDim }]}>— {overlay.quote.by.toUpperCase()}</Text> : null}
         <Text style={[styles.tap, { color: c.textFaint }]}>TAP TO CONTINUE</Text>
       </Pressable>
     </Animated.View>
@@ -233,6 +220,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     letterSpacing: 1,
   },
-  sub: { fontFamily: fonts.mono, fontSize: 12, letterSpacing: 1.6, marginTop: 10, textAlign: 'center' },
+  quote: { fontFamily: fonts.medium, fontSize: 17, lineHeight: 24, marginTop: 16, textAlign: 'center', maxWidth: 320 },
+  sub: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1.6, marginTop: 10, textAlign: 'center' },
   tap: { position: 'absolute', bottom: 70, fontFamily: fonts.mono, fontSize: 10, letterSpacing: 2.4 },
 });

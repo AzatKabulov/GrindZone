@@ -13,7 +13,9 @@ import * as SystemUI from 'expo-system-ui';
 import { useEffect, useMemo } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { FocusEngine } from '@/components/FocusEngine';
 import { FxHost } from '@/components/FxHost';
+import { PeekHost } from '@/components/TaskPeek';
 import { startAuth, useAuth } from '@/store/auth';
 import { useData } from '@/store/data';
 import { useSettings } from '@/store/settings';
@@ -88,11 +90,16 @@ export default function RootLayout() {
             <Stack.Screen name="goal/[id]" options={sheet} />
             <Stack.Screen name="note/[id]" options={sheet} />
             <Stack.Screen name="settings" options={sheet} />
+            <Stack.Screen name="habit/[id]" options={sheet} />
+            <Stack.Screen name="focus" options={sheet} />
+            <Stack.Screen name="notes" />
           </Stack.Protected>
           <Stack.Protected guard={!signedIn}>
             <Stack.Screen name="sign-in" options={{ animation: 'fade' }} />
           </Stack.Protected>
         </Stack>
+        <FocusEngine />
+        <PeekHost />
         <FxHost />
       </ThemeProvider>
     </GestureHandlerRootView>

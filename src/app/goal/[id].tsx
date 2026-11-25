@@ -4,6 +4,7 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } fr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FxHost } from '@/components/FxHost';
+import { PeekHost } from '@/components/TaskPeek';
 import { QuickAdd } from '@/components/ListBits';
 import { DatePicker, FieldLabel, SheetHeader } from '@/components/pickers';
 import { TaskRow } from '@/components/TaskRow';
@@ -160,6 +161,7 @@ export default function GoalScreen() {
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
+      <PeekHost />
       <FxHost />
     </View>
   );

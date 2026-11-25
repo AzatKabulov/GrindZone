@@ -6,13 +6,14 @@ import { Alert, Platform, ScrollView, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SheetHeader } from '@/components/pickers';
-import { Button, Card, Input, Press, ProgressBar, Section, Txt, type IconName } from '@/components/ui';
+import { Heatmap } from '@/components/Heatmap';
+import { Button, Card, Input, Press, Section, Txt, type IconName } from '@/components/ui';
 import { isoToKey, fmtClock, relativeLabel, todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
-import { levelInfo } from '@/lib/xp';
 import { useAuth } from '@/store/auth';
 import { useData } from '@/store/data';
-import { activeDays, bestStreak, totalXp } from '@/store/selectors';
+import { useFocus } from '@/store/focus';
+import { activeDays, activityByDay, bestStreak } from '@/store/selectors';
 import { useSettings } from '@/store/settings';
 import { signOut, syncNow, useSync } from '@/store/sync';
 import { ACCENT_KEYS, ACCENTS, alpha, fonts, useTheme, type ThemeMode } from '@/theme';
@@ -26,19 +27,22 @@ export default function SettingsScreen() {
   const tasks = useData((s) => s.tasks);
   const blocks = useData((s) => s.blocks);
   const goals = useData((s) => s.goals);
+  const notes = useData((s) => s.notes);
+  const habits = useData((s) => s.habits);
+  const focusHistory = useFocus((s) => s.history);
   const dirtyCount = useData((s) => Object.keys(s.dirty).length);
   const [name, setName] = useState(settings.name);
 
   const stats = useMemo(() => {
-    const days = activeDays(tasks, blocks, goals);
+    const days = activeDays(tasks, goals, habits, focusHistory);
     return {
-      xp: totalXp(tasks, blocks, goals),
       tasks: Object.values(tasks).filter((t) => t.done).length,
       goals: Object.values(goals).filter((g) => g.status === 'achieved' && !g.deleted).length,
+      focus: Object.values(focusHistory).reduce((a, b) => a + b, 0),
       best: bestStreak(days),
+      activity: activityByDay({ tasks, blocks, notes, habits, goals, focus: focusHistory }),
     };
-  }, [tasks, blocks, goals]);
-  const lvl = levelInfo(stats.xp);
+  }, [tasks, blocks, goals, notes, habits, focusHistory]);
   const initials = (settings.name || session?.user.email || 'G').trim().charAt(0).toUpperCase();
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
@@ -93,22 +97,20 @@ export default function SettingsScreen() {
               </Txt>
             </View>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 18, marginBottom: 8 }}>
-            <Txt variant="h2" color={accent}>
-              LVL {lvl.level} · {lvl.rank}
-            </Txt>
-            <View style={{ flex: 1 }} />
-            <Txt variant="label" style={{ marginBottom: 3 }}>
-              {stats.xp} XP TOTAL
-            </Txt>
-          </View>
-          <ProgressBar value={lvl.progress} height={5} />
-          <View style={{ flexDirection: 'row', marginTop: 18 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 18, rowGap: 14 }}>
             <Stat label="TASKS DONE" value={stats.tasks} />
             <Stat label="BEST STREAK" value={`${stats.best}D`} />
-            <Stat label="GOALS" value={stats.goals} />
+            <Stat label="FOCUS SESSIONS" value={stats.focus} />
+            <Stat label="GOALS ACHIEVED" value={stats.goals} />
           </View>
         </Card>
+
+        <View>
+          <Section label="LAST 6 MONTHS" style={{ marginBottom: 12 }} />
+          <Card>
+            <Heatmap counts={stats.activity} weeks={26} />
+          </Card>
+        </View>
 
         <View>
           <Section label="NAME" style={{ marginBottom: 12 }} />
@@ -266,7 +268,7 @@ export default function SettingsScreen() {
 
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ width: '50%' }}>
       <Txt variant="h2">{value}</Txt>
       <Txt variant="label" style={{ fontSize: 9 }}>
         {label}

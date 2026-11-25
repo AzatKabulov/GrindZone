@@ -67,7 +67,7 @@ export default function PlanScreen() {
 
   const onGridPress = (e: GestureResponderEvent) => {
     const y = e.nativeEvent.locationY;
-    const min = Math.floor(((y / HOUR_H) * 60) / 30) * 30;
+    const min = Math.floor(((y / HOUR_H) * 60) / 15) * 15;
     newBlockAt(Math.max(0, Math.min(23 * 60 + 30, min)));
   };
 
@@ -79,7 +79,7 @@ export default function PlanScreen() {
 
   const copyYesterday = () => {
     const n = copyDay(addDays(day, -1), day);
-    useFx.getState().toast(`${n} ${n === 1 ? 'BLOCK' : 'BLOCKS'}`, 'COPIED FROM YESTERDAY');
+    useFx.getState().info('COPIED FROM YESTERDAY', `${n} ${n === 1 ? 'block' : 'blocks'} added to this day.`);
   };
 
   const layout = useMemo(() => layoutColumns(list), [list]);

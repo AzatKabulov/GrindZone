@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { ScrollView, TextInput, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import { Empty, IconBtn, Press, Screen, ScreenTitle, Section, TAB_BAR_SPACE, Txt } from '@/components/ui';
+import { Empty, IconBtn, Press, Screen, ScreenTitle, Section, Txt } from '@/components/ui';
 import { fmtClock, isoToKey, relativeLabel, todayKey } from '@/lib/date';
 import { useData, type Note } from '@/store/data';
 import { alive } from '@/store/selectors';
@@ -33,10 +33,16 @@ export default function NotesScreen() {
   return (
     <Screen>
       <ScrollView
-        contentContainerStyle={{ padding: 20, paddingBottom: TAB_BAR_SPACE }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <Press onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} tapHaptic hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginTop: 4 }}>
+          <Ionicons name="chevron-back" size={16} color={accent} />
+          <Txt variant="label" color={accent}>
+            BACK
+          </Txt>
+        </Press>
         <ScreenTitle
           kicker={all ? `${all} ${all === 1 ? 'NOTE' : 'NOTES'}` : undefined}
           title="NOTES"

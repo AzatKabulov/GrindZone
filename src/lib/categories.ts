@@ -27,8 +27,13 @@ export function blockColor(cat: BlockCategory, accent: string): string {
   return BLOCK_CATEGORIES[cat]?.color ?? accent;
 }
 
-/** Tasks are either normal or important (priority 1). Priority 3 from older data counts as normal. */
-export const isImportant = (priority: number) => priority === 1;
+export type Priority = 1 | 2 | 3;
+
+export const PRIORITIES: Record<Priority, { label: string }> = {
+  1: { label: 'HIGH' },
+  2: { label: 'MEDIUM' },
+  3: { label: 'LOW' },
+};
 
 /** Stored on goals for older data; no longer shown in the UI. */
 export type GoalCategory = 'body' | 'mind' | 'wealth' | 'craft' | 'spirit' | 'social';
