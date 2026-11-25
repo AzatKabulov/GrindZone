@@ -32,10 +32,15 @@ export default function TodayScreen() {
 
   const today = todayKey();
   const nowMin = minutesNow();
-  const { open, done } = useMemo(() => tasksForDay(tasks, today), [tasks, today]);
-  const dayBlocks = useMemo(() => blocksForDay(blocks, today), [blocks, today]);
-  const xp = useMemo(() => totalXp(tasks, blocks, goals), [tasks, blocks, goals]);
-  const streak = useMemo(() => currentStreak(activeDays(tasks, blocks, goals), today), [tasks, blocks, goals, today]);
+  const { open, done, dayBlocks, xp, streak } = useMemo(() => {
+    const day = tasksForDay(tasks, today);
+    return {
+      ...day,
+      dayBlocks: blocksForDay(blocks, today),
+      xp: totalXp(tasks, blocks, goals),
+      streak: currentStreak(activeDays(tasks, blocks, goals), today),
+    };
+  }, [tasks, blocks, goals, today]);
   const lvl = levelInfo(xp);
   const blocksDone = dayBlocks.filter((b) => b.done).length;
   const totalMissions = open.length + done.length;

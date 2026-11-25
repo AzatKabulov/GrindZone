@@ -25,7 +25,7 @@ export function mantraOfTheDay(d = new Date()): string {
 }
 
 export const COMPLETION_LINES = [
-  'DAY WON.',
+  'ZERO EXCUSES. ZERO LEFT.',
   'EXECUTED.',
   'NOTHING LEFT ON THE TABLE.',
   'THAT IS HOW IT IS DONE.',

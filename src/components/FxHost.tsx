@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -83,6 +84,12 @@ export function FxHost() {
 
 const PARTICLES = 34;
 
+/** Deterministic pseudo-random in [0, 1) — keeps render pure while every burst looks different. */
+function noise(seed: number, i: number, k: number): number {
+  const x = Math.sin(seed * 374.761 + i * 12.9898 + k * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
+
 function Celebration({ overlay }: { overlay: Overlay }) {
   const { c, accent, isDark } = useTheme();
   const dismiss = useFx((s) => s.dismiss);
@@ -92,13 +99,13 @@ function Celebration({ overlay }: { overlay: Overlay }) {
   const particles = useMemo(
     () =>
       Array.from({ length: PARTICLES }, (_, i) => ({
-        angle: (i / PARTICLES) * Math.PI * 2 + Math.random() * 0.3,
-        dist: 140 + Math.random() * 170,
-        len: 6 + Math.random() * 16,
-        delay: Math.random() * 120,
+        angle: (i / PARTICLES) * Math.PI * 2 + noise(overlay.id, i, 1) * 0.3,
+        dist: 140 + noise(overlay.id, i, 2) * 170,
+        len: 6 + noise(overlay.id, i, 3) * 16,
+        delay: noise(overlay.id, i, 4) * 120,
         color: i % 3 === 0 ? c.text : accent,
       })),
-    [accent, c.text],
+    [accent, c.text, overlay.id],
   );
 
   const wave = useSharedValue(0);
@@ -121,8 +128,17 @@ function Celebration({ overlay }: { overlay: Overlay }) {
     <Animated.View
       entering={FadeIn.duration(180)}
       exiting={FadeOut.duration(260)}
-      style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.86)' : 'rgba(241,238,231,0.94)' }]}
+      style={StyleSheet.absoluteFill}
     >
+      {Platform.OS === 'ios' ? (
+        <BlurView intensity={50} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+      ) : null}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: isDark ? 'rgba(5,5,6,0.93)' : 'rgba(241,238,231,0.95)' },
+        ]}
+      />
       <Pressable style={styles.center} onPress={dismiss}>
         <Animated.View
           pointerEvents="none"

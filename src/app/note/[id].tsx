@@ -19,7 +19,14 @@ export default function NoteEditor() {
   const [title, setTitle] = useState(note?.title ?? '');
   const [body, setBody] = useState(note?.body ?? '');
   const latest = useRef({ title, body });
-  latest.current = { title, body };
+  const onTitle = (v: string) => {
+    latest.current = { ...latest.current, title: v };
+    setTitle(v);
+  };
+  const onBody = (v: string) => {
+    latest.current = { ...latest.current, body: v };
+    setBody(v);
+  };
   const bodyRef = useRef<TextInputInstance>(null);
 
   const flush = () => {
@@ -100,7 +107,7 @@ export default function NoteEditor() {
       >
         <TextInput
           value={title}
-          onChangeText={setTitle}
+          onChangeText={onTitle}
           placeholder="Title"
           placeholderTextColor={c.textFaint}
           selectionColor={accent}
@@ -115,7 +122,7 @@ export default function NoteEditor() {
         <TextInput
           ref={bodyRef}
           value={body}
-          onChangeText={setBody}
+          onChangeText={onBody}
           placeholder="Write it down. Lessons, plans, ideas, reflections…"
           placeholderTextColor={c.textFaint}
           selectionColor={accent}
