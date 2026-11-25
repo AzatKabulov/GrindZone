@@ -1,76 +1,86 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { Children, isValidElement, useEffect, type ReactNode } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useEffect, type ComponentProps, type ReactNode } from 'react';
 import {
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
   type PressableProps,
-  type TextInputProps,
-  type ScrollViewProps,
   type StyleProp,
+  type TextInputProps,
   type TextProps,
   type TextStyle,
   type ViewProps,
   type ViewStyle,
 } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { haptic } from '@/lib/haptics';
-import { alpha, font, squircle, TYPE, useTheme, type Design, type TextVariant, type Weight } from '@/theme';
-import { Icon, type IconName } from './Icon';
+import { alpha, fonts, radius, useTheme } from '@/theme';
 
-export type { IconName };
+export type IconName = ComponentProps<typeof Ionicons>['name'];
 
 /* ───────────────────────────── Text ───────────────────────────── */
 
+type Variant =
+  | 'hero'
+  | 'display'
+  | 'h1'
+  | 'h2'
+  | 'title'
+  | 'body'
+  | 'small'
+  | 'label'
+  | 'mono';
+
+const VARIANTS: Record<Variant, TextStyle> = {
+  hero: { fontFamily: fonts.display, fontSize: 62, lineHeight: 60, letterSpacing: 0.5 },
+  display: { fontFamily: fonts.display, fontSize: 42, lineHeight: 42, letterSpacing: 0.5 },
+  h1: { fontFamily: fonts.display, fontSize: 32, lineHeight: 33, letterSpacing: 0.6 },
+  h2: { fontFamily: fonts.display, fontSize: 24, lineHeight: 26, letterSpacing: 0.8 },
+  title: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 21 },
+  body: { fontFamily: fonts.body, fontSize: 15, lineHeight: 21 },
+  small: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18 },
+  label: { fontFamily: fonts.mono, fontSize: 10.5, lineHeight: 14, letterSpacing: 1.6 },
+  mono: { fontFamily: fonts.mono, fontSize: 12.5, lineHeight: 17, letterSpacing: 0.4 },
+};
+
 export function Txt({
   variant = 'body',
-  weight,
-  design = 'default',
-  italic,
   color,
   size,
-  tabular,
-  center,
   style,
   ...rest
-}: TextProps & {
-  variant?: TextVariant;
-  weight?: Weight;
-  design?: Design;
-  italic?: boolean;
-  color?: string;
-  size?: number;
-  tabular?: boolean;
-  center?: boolean;
-}) {
+}: TextProps & { variant?: Variant; color?: string; size?: number }) {
   const { c } = useTheme();
-  const t = TYPE[variant];
-  const fs = size ?? t.size;
-  const st: TextStyle = {
-    ...font(weight ?? t.weight, design, italic),
-    fontSize: fs,
-    lineHeight: size ? Math.round(size * 1.2) : t.line,
-    letterSpacing: design === 'serif' ? 0 : size ? undefined : t.tracking,
-    color: color ?? c.label,
-    ...(tabular ? { fontVariant: ['tabular-nums'] as TextStyle['fontVariant'] } : null),
-    ...(center ? { textAlign: 'center' as const } : null),
-  };
-  return <Text {...rest} style={[st, style]} />;
+  const base = VARIANTS[variant];
+  const dim = variant === 'label';
+  return (
+    <Text
+      {...rest}
+      style={[
+        base,
+        { color: color ?? (dim ? c.textDim : c.text) },
+        size ? { fontSize: size, lineHeight: Math.round(size * (base.fontFamily === fonts.display ? 1 : 1.35)) } : null,
+        style,
+      ]}
+    />
+  );
 }
 
 /* ─────────────────────────── Pressable ─────────────────────────── */
 
 const APressable = Animated.createAnimatedComponent(Pressable);
 
-/** Pressable with Apple-style feedback: a gentle scale + dim. */
 export function Press({
-  scaleTo = 0.97,
-  dim = true,
+  scaleTo = 0.96,
   tapHaptic = false,
   onPress,
   style,
@@ -78,25 +88,21 @@ export function Press({
   ...rest
 }: Omit<PressableProps, 'style' | 'children'> & {
   scaleTo?: number;
-  dim?: boolean;
   tapHaptic?: boolean;
   style?: StyleProp<ViewStyle>;
   children?: ReactNode;
 }) {
-  const p = useSharedValue(0);
-  const a = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 - (1 - scaleTo) * p.value }],
-    opacity: dim ? 1 - 0.25 * p.value : 1,
-  }));
+  const s = useSharedValue(1);
+  const a = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
   return (
     <APressable
       {...rest}
       onPressIn={(e) => {
-        p.set(withTiming(1, { duration: 80 }));
+        s.set(withTiming(scaleTo, { duration: 90 }));
         rest.onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        p.set(withSpring(0, { damping: 16, stiffness: 260 }));
+        s.set(withSpring(1, { damping: 14, stiffness: 320 }));
         rest.onPressOut?.(e);
       }}
       onPress={(e) => {
@@ -115,61 +121,66 @@ export function Press({
 export function Button({
   label,
   onPress,
-  variant = 'filled',
-  size = 'large',
+  variant = 'primary',
   icon,
   disabled,
-  color,
+  small,
   style,
+  color,
 }: {
   label: string;
   onPress?: () => void;
-  variant?: 'filled' | 'tinted' | 'gray' | 'plain' | 'destructive';
-  size?: 'large' | 'medium' | 'small';
+  variant?: 'primary' | 'outline' | 'ghost' | 'danger';
   icon?: IconName;
   disabled?: boolean;
-  color?: string;
+  small?: boolean;
   style?: StyleProp<ViewStyle>;
+  color?: string;
 }) {
-  const { c, accent } = useTheme();
-  const tint = color ?? accent;
-  const h = size === 'large' ? 52 : size === 'medium' ? 42 : 32;
-  const bg =
-    variant === 'filled'
-      ? tint
-      : variant === 'tinted'
-        ? alpha(tint, 0.16)
-        : variant === 'gray'
-          ? c.fill2
-          : variant === 'destructive'
-            ? alpha(c.red, 0.14)
-            : 'transparent';
-  const fg = variant === 'filled' ? '#FFFFFF' : variant === 'destructive' ? c.red : variant === 'gray' ? c.label : tint;
+  const { c, accent, onAccent } = useTheme();
+  const fill = color ?? accent;
+  const fg =
+    variant === 'primary'
+      ? onAccent
+      : variant === 'danger'
+        ? c.danger
+        : variant === 'ghost'
+          ? c.textDim
+          : c.text;
   return (
     <Press
       disabled={disabled}
       tapHaptic
-      scaleTo={0.96}
       onPress={onPress}
       style={[
         {
-          height: h,
-          paddingHorizontal: size === 'small' ? 14 : 20,
-          borderRadius: h / 2,
-          backgroundColor: bg,
+          height: small ? 40 : 54,
+          paddingHorizontal: small ? 14 : 20,
+          borderRadius: small ? radius.sm : 12,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 7,
+          gap: 8,
           opacity: disabled ? 0.4 : 1,
         },
+        variant === 'primary' && { backgroundColor: fill },
+        variant === 'outline' && { borderWidth: 1, borderColor: c.borderStrong },
+        variant === 'danger' && { borderWidth: 1, borderColor: alpha(c.danger, 0.35) },
         style,
       ]}
     >
-      {icon ? <Icon name={icon} size={size === 'small' ? 13 : 17} color={fg} weight="semibold" /> : null}
-      <Txt variant={size === 'small' ? 'subhead' : 'headline'} weight="600" color={fg}>
+      {icon ? <Ionicons name={icon} size={small ? 16 : 18} color={fg} /> : null}
+      <Text
+        style={{
+          fontFamily: fonts.display,
+          fontSize: small ? 17 : 21,
+          letterSpacing: 1.4,
+          color: fg,
+          marginTop: 2,
+        }}
+      >
         {label}
-      </Txt>
+      </Text>
     </Press>
   );
 }
@@ -181,45 +192,149 @@ export function Card({ style, children, ...rest }: ViewProps) {
   return (
     <View
       {...rest}
-      style={[{ backgroundColor: c.card, borderRadius: 22, padding: 16, overflow: 'hidden' }, squircle, style]}
+      style={[
+        {
+          backgroundColor: c.surface,
+          borderRadius: radius.md + 2,
+          borderWidth: 1,
+          borderColor: c.border,
+          padding: 16,
+        },
+        style,
+      ]}
     >
       {children}
     </View>
   );
 }
 
-/* ─────────────────────────── Grouped list ─────────────────────────── */
+/* ───────────────────────────── Chip ───────────────────────────── */
 
-export function SectionHeader({
-  title,
-  detail,
-  action,
-  onAction,
+export function Chip({
+  label,
+  active,
+  onPress,
+  color,
+  icon,
+  style,
+}: {
+  label: string;
+  active?: boolean;
+  onPress?: () => void;
+  /** Tinted style in this colour instead of the solid accent. */
+  color?: string;
+  icon?: IconName;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { c, accent, onAccent } = useTheme();
+  const tint = color;
+  const bg = active ? (tint ? alpha(tint, 0.16) : accent) : c.surface2;
+  const border = active ? (tint ?? accent) : c.border;
+  const fg = active ? (tint ?? onAccent) : c.textDim;
+  return (
+    <Press
+      tapHaptic
+      onPress={onPress}
+      style={[
+        {
+          height: 34,
+          paddingHorizontal: 12,
+          borderRadius: 9,
+          borderWidth: 1,
+          borderColor: border,
+          backgroundColor: bg,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+        },
+        style,
+      ]}
+    >
+      {icon ? <Ionicons name={icon} size={13} color={fg} /> : null}
+      <Text style={{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1.2, color: fg }}>
+        {label}
+      </Text>
+    </Press>
+  );
+}
+
+/* ─────────────────────────── IconButton ─────────────────────────── */
+
+export function IconBtn({
+  icon,
+  onPress,
+  accentFill,
+  size = 40,
   color,
   style,
 }: {
-  title: string;
-  detail?: string;
+  icon: IconName;
+  onPress?: () => void;
+  accentFill?: boolean;
+  size?: number;
+  color?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { c, accent, onAccent } = useTheme();
+  return (
+    <Press
+      tapHaptic
+      scaleTo={0.9}
+      onPress={onPress}
+      hitSlop={6}
+      style={[
+        {
+          width: size,
+          height: size,
+          borderRadius: size * 0.32,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: accentFill ? accent : c.surface2,
+          borderWidth: accentFill ? 0 : 1,
+          borderColor: c.border,
+        },
+        style,
+      ]}
+    >
+      <Ionicons
+        name={icon}
+        size={size * 0.5}
+        color={color ?? (accentFill ? onAccent : c.text)}
+      />
+    </Press>
+  );
+}
+
+/* ─────────────────────────── Section header ─────────────────────────── */
+
+export function Section({
+  label,
+  count,
+  action,
+  onAction,
+  style,
+}: {
+  label: string;
+  count?: number | string;
   action?: string;
   onAction?: () => void;
-  color?: string;
   style?: StyleProp<ViewStyle>;
 }) {
   const { c, accent } = useTheme();
   return (
-    <View style={[{ flexDirection: 'row', alignItems: 'baseline', paddingHorizontal: 4, marginBottom: 8 }, style]}>
-      <Txt variant="title3" weight="700" color={color} style={{ flex: 1 }}>
-        {title}
-        {detail ? (
-          <Txt variant="title3" weight="400" color={c.label2}>
-            {'  '}
-            {detail}
-          </Txt>
-        ) : null}
+    <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 10 }, style]}>
+      <Txt variant="label" color={c.text}>
+        {label}
       </Txt>
+      {count !== undefined ? (
+        <Txt variant="label" color={c.textFaint}>
+          {String(count).padStart(2, '0')}
+        </Txt>
+      ) : null}
+      <View style={{ flex: 1, height: 1, backgroundColor: c.border }} />
       {action ? (
-        <Press onPress={onAction} hitSlop={10} tapHaptic>
-          <Txt variant="body" color={accent}>
+        <Press onPress={onAction} tapHaptic hitSlop={10}>
+          <Txt variant="label" color={accent}>
             {action}
           </Txt>
         </Press>
@@ -228,154 +343,27 @@ export function SectionHeader({
   );
 }
 
-/** Inset grouped list section (Settings / Reminders style). Separators are inserted between rows. */
-export function ListSection({
-  header,
-  footer,
-  inset = 16,
-  children,
-  style,
-}: {
-  header?: string;
-  footer?: string;
-  inset?: number;
-  children: ReactNode;
-  style?: StyleProp<ViewStyle>;
-}) {
-  const { c } = useTheme();
-  const rows = Children.toArray(children).filter(isValidElement);
-  return (
-    <View style={style}>
-      {header ? (
-        <Txt variant="footnote" color={c.label2} style={{ textTransform: 'uppercase', marginLeft: 16, marginBottom: 7 }}>
-          {header}
-        </Txt>
-      ) : null}
-      <View style={[{ backgroundColor: c.card, borderRadius: 22, overflow: 'hidden' }, squircle]}>
-        {rows.map((row, i) => (
-          <View key={row.key ?? i}>
-            {row}
-            {i < rows.length - 1 ? (
-              <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: c.separator, marginLeft: inset }} />
-            ) : null}
-          </View>
-        ))}
-      </View>
-      {footer ? (
-        <Txt variant="footnote" color={c.label2} style={{ marginHorizontal: 16, marginTop: 7 }}>
-          {footer}
-        </Txt>
-      ) : null}
-    </View>
-  );
-}
+/* ───────────────────────────── Input ───────────────────────────── */
 
-/** Coloured rounded-square glyph, like the icons in iOS Settings. */
-export function IconTile({ name, color, size = 30 }: { name: IconName; color: string; size?: number }) {
-  return (
-    <View
-      style={[
-        {
-          width: size,
-          height: size,
-          borderRadius: size * 0.24,
-          backgroundColor: color,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        squircle,
-      ]}
-    >
-      <Icon name={name} size={size * 0.56} color="#FFFFFF" weight="semibold" />
-    </View>
-  );
-}
-
-export function Row({
-  icon,
-  iconColor,
-  title,
-  subtitle,
-  value,
-  valueColor,
-  chevron,
-  onPress,
-  right,
-  titleColor,
-  center,
-}: {
-  icon?: IconName;
-  iconColor?: string;
-  title: string;
-  subtitle?: string;
-  value?: string;
-  valueColor?: string;
-  chevron?: boolean;
-  onPress?: () => void;
-  right?: ReactNode;
-  titleColor?: string;
-  center?: boolean;
-}) {
-  const { c, accent } = useTheme();
-  const content = (
-    <View
-      style={{
-        minHeight: subtitle ? 58 : 48,
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        gap: 14,
-      }}
-    >
-      {icon ? <IconTile name={icon} color={iconColor ?? accent} /> : null}
-      <View style={{ flex: 1, alignItems: center ? 'center' : 'flex-start' }}>
-        <Txt variant="body" color={titleColor ?? c.label} numberOfLines={1}>
-          {title}
-        </Txt>
-        {subtitle ? (
-          <Txt variant="footnote" color={c.label2} numberOfLines={2} style={{ marginTop: 1 }}>
-            {subtitle}
-          </Txt>
-        ) : null}
-      </View>
-      {value ? (
-        <Txt variant="body" color={valueColor ?? c.label2} numberOfLines={1} style={{ maxWidth: '55%' }}>
-          {value}
-        </Txt>
-      ) : null}
-      {right}
-      {chevron ? <Icon name="chevronRight" size={13} color={c.label3} weight="semibold" /> : null}
-    </View>
-  );
-  if (!onPress) return content;
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ backgroundColor: pressed ? c.fill2 : 'transparent' })}>
-      {content}
-    </Pressable>
-  );
-}
-
-/** Borderless text field that sits inside a ListSection, like iOS forms. */
-export function InputRow({ style, multiline, ...rest }: TextInputProps) {
+export function Input({ style, ...rest }: TextInputProps) {
   const { c, accent, isDark } = useTheme();
   return (
     <TextInput
-      placeholderTextColor={c.label3}
+      placeholderTextColor={c.textFaint}
       selectionColor={accent}
       keyboardAppearance={isDark ? 'dark' : 'light'}
-      multiline={multiline}
       {...rest}
       style={[
         {
-          ...font('400'),
-          fontSize: 17,
-          lineHeight: multiline ? 22 : undefined,
-          color: c.label,
-          paddingHorizontal: 16,
+          backgroundColor: c.surface2,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: c.border,
+          paddingHorizontal: 14,
           paddingVertical: 13,
-          minHeight: multiline ? 96 : 48,
-          textAlignVertical: multiline ? 'top' : 'center',
+          fontFamily: fonts.body,
+          fontSize: 16,
+          color: c.text,
         },
         style,
       ]}
@@ -401,35 +389,63 @@ export function ProgressBar({
   const { c, accent } = useTheme();
   const w = useSharedValue(0);
   useEffect(() => {
-    w.set(withTiming(Math.max(0, Math.min(1, value)), { duration: 700 }));
+    w.value = withTiming(Math.max(0, Math.min(1, value)), { duration: 700 });
   }, [value, w]);
   const a = useAnimatedStyle(() => ({ width: `${w.value * 100}%` }));
   return (
-    <View style={[{ height, borderRadius: height / 2, backgroundColor: track ?? c.fill, overflow: 'hidden' }, style]}>
-      <Animated.View style={[{ height: '100%', borderRadius: height / 2, backgroundColor: color ?? accent }, a]} />
+    <View
+      style={[
+        {
+          height,
+          borderRadius: height / 2,
+          backgroundColor: track ?? c.surface3,
+          overflow: 'hidden',
+        },
+        style,
+      ]}
+    >
+      <Animated.View
+        style={[{ height: '100%', borderRadius: height / 2, backgroundColor: color ?? accent }, a]}
+      />
     </View>
   );
 }
 
 /* ───────────────────────────── Screen ───────────────────────────── */
 
-/** Bottom space so content clears the tab bar on platforms that don't inset automatically. */
-export const BOTTOM_SPACE = Platform.OS === 'ios' ? 32 : 110;
+/** Space to leave at the bottom of tab screens so content clears the floating tab bar. */
+export const TAB_BAR_SPACE = 110;
 
-/** Scroll container that cooperates with native large titles and the tab bar. */
-export function ScrollScreen({ children, contentContainerStyle, ...rest }: ScrollViewProps & { children: ReactNode }) {
+export function Screen({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const { c } = useTheme();
+  const insets = useSafeAreaInsets();
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="interactive"
-      {...rest}
-      style={[{ flex: 1, backgroundColor: c.bg }, rest.style]}
-      contentContainerStyle={[{ paddingHorizontal: 16, paddingBottom: BOTTOM_SPACE }, contentContainerStyle]}
-    >
-      {children}
-    </ScrollView>
+    <View style={[{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }, style]}>{children}</View>
+  );
+}
+
+/** Big title row used at the top of every tab. */
+export function ScreenTitle({
+  kicker,
+  title,
+  right,
+}: {
+  kicker?: string;
+  title: string;
+  right?: ReactNode;
+}) {
+  const { accent } = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', paddingTop: 10, marginBottom: 18 }}>
+      <View style={{ flex: 1 }}>
+        {kicker ? <Txt variant="label">{kicker}</Txt> : null}
+        <Txt variant="display" style={{ marginTop: 6 }}>
+          {title}
+          <Text style={{ color: accent }}>.</Text>
+        </Txt>
+      </View>
+      {right ? <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>{right}</View> : null}
+    </View>
   );
 }
 
@@ -450,43 +466,33 @@ export function Empty({
 }) {
   const { c } = useTheme();
   return (
-    <View style={{ alignItems: 'center', paddingVertical: 40, paddingHorizontal: 24, gap: 8 }}>
-      <Icon name={icon} size={46} color={c.label3} weight="light" />
-      <Txt variant="title2" center style={{ marginTop: 10 }}>
+    <View style={{ alignItems: 'center', paddingVertical: 36, gap: 10 }}>
+      <View
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: 18,
+          borderWidth: 1,
+          borderColor: c.border,
+          backgroundColor: c.surface,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Ionicons name={icon} size={24} color={c.textFaint} />
+      </View>
+      <Txt variant="h2" style={{ marginTop: 6 }}>
         {title}
       </Txt>
       {text ? (
-        <Txt variant="subhead" color={c.label2} center style={{ maxWidth: 290 }}>
+        <Txt variant="small" color={c.textDim} style={{ textAlign: 'center', maxWidth: 260 }}>
           {text}
         </Txt>
       ) : null}
-      {action ? <Button label={action} size="medium" variant="tinted" onPress={onAction} style={{ marginTop: 12 }} /> : null}
+      {action ? (
+        <Button label={action} small variant="outline" onPress={onAction} style={{ marginTop: 8 }} />
+      ) : null}
     </View>
-  );
-}
-
-/* ───────────────────────────── Avatar ───────────────────────────── */
-
-export function Avatar({ name, size = 36 }: { name: string; size?: number }) {
-  const { accent } = useTheme();
-  const initials =
-    name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((p) => p.charAt(0).toUpperCase())
-      .join('') || 'G';
-  return (
-    <LinearGradient
-      colors={[alpha(accent, 0.75), accent]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center' }}
-    >
-      <Txt design="rounded" weight="600" size={size * 0.42} color="#FFFFFF">
-        {initials}
-      </Txt>
-    </LinearGradient>
   );
 }
 

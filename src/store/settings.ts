@@ -20,7 +20,7 @@ export const useSettings = create<SettingsState>()(
   persist(
     (set) => ({
       mode: 'system',
-      accent: 'orange',
+      accent: 'ember',
       haptics: true,
       name: '',
       guest: false,

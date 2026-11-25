@@ -14,14 +14,13 @@ export interface Theme {
   accentKey: AccentKey;
 }
 
-export function buildTheme(isDark: boolean, key: AccentKey): Theme {
-  const accentKey: AccentKey = key in ACCENTS ? key : 'orange';
-  const a = ACCENTS[accentKey];
+export function buildTheme(isDark: boolean, accentKey: AccentKey): Theme {
+  const a = ACCENTS[accentKey] ?? ACCENTS.ember;
   return {
     c: isDark ? DARK : LIGHT,
     isDark,
     accent: isDark ? a.dark : a.light,
-    onAccent: '#FFFFFF',
+    onAccent: isDark ? a.onDark : a.onLight,
     accentKey,
   };
 }
@@ -34,7 +33,7 @@ export function useTheme(): Theme {
   return useMemo(() => buildTheme(isDark, accentKey), [isDark, accentKey]);
 }
 
-/** Keeps native UI (keyboard, alerts, pickers, tab bar) in sync with the in-app theme override. */
+/** Keeps native UI (keyboard, alerts, modals) in sync with the in-app theme override. */
 export function useApplyAppearance() {
   const mode = useSettings((s) => s.mode);
   useEffect(() => {

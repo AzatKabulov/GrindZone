@@ -18,15 +18,15 @@ export function levelFromXp(xp: number): number {
 }
 
 const RANKS: [number, string][] = [
-  [1, 'Recruit'],
-  [3, 'Grinder'],
-  [5, 'Operator'],
-  [8, 'Hunter'],
-  [11, 'Veteran'],
-  [15, 'Elite'],
-  [20, 'Apex'],
-  [25, 'Titan'],
-  [30, 'Legend'],
+  [1, 'RECRUIT'],
+  [3, 'GRINDER'],
+  [5, 'OPERATOR'],
+  [8, 'HUNTER'],
+  [11, 'VETERAN'],
+  [15, 'ELITE'],
+  [20, 'APEX'],
+  [25, 'TITAN'],
+  [30, 'LEGEND'],
 ];
 
 export function rankFor(level: number): string {
@@ -58,11 +58,4 @@ export function levelInfo(xp: number): LevelInfo {
     span: next - base,
     progress: (xp - base) / (next - base),
   };
-}
-
-/** 12345 -> '12,345' (no Intl dependency). */
-export function fmtNum(n: number): string {
-  return Math.round(n)
-    .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }

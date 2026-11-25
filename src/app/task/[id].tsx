@@ -1,18 +1,19 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Platform, Switch, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { DateField, pick, QuickDates } from '@/components/fields';
-import { HeaderActions } from '@/components/header';
-import { Button, InputRow, ListSection, Row, ScrollScreen, Txt } from '@/components/ui';
-import { PRIORITIES } from '@/lib/categories';
-import { relativeLabel, todayKey } from '@/lib/date';
+import { DatePicker, FieldLabel, SheetHeader } from '@/components/pickers';
+import { Button, Chip, Input, Txt } from '@/components/ui';
+import { GOAL_CATEGORIES, PRIORITIES } from '@/lib/categories';
+import { todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
-import { XP, type Priority } from '@/lib/xp';
+import type { Priority } from '@/lib/xp';
+import { XP } from '@/lib/xp';
 import { toggleTask } from '@/store/actions';
 import { useData } from '@/store/data';
 import { alive } from '@/store/selectors';
-import { useTheme } from '@/theme';
+import { fonts, useTheme } from '@/theme';
 
 export default function TaskEditor() {
   const params = useLocalSearchParams<{ id: string; due?: string; goal?: string }>();
@@ -20,7 +21,8 @@ export default function TaskEditor() {
   const existing = useData((s) => (isNew ? undefined : s.tasks[params.id]));
   const goals = useData((s) => s.goals);
   const { create, patch, remove } = useData.getState();
-  const { c } = useTheme();
+  const { c, accent } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const [title, setTitle] = useState(existing?.title ?? '');
   const [notes, setNotes] = useState(existing?.notes ?? '');
@@ -30,16 +32,22 @@ export default function TaskEditor() {
   );
   const [goalId, setGoalId] = useState<string | null>(existing?.goal_id ?? params.goal ?? null);
 
-  const goalOptions = useMemo(() => alive(goals).filter((g) => g.status === 'active' || g.id === goalId), [goals, goalId]);
-  const goal = goalId ? goals[goalId] : undefined;
+  const activeGoals = useMemo(
+    () => alive(goals).filter((g) => g.status === 'active' || g.id === goalId),
+    [goals, goalId],
+  );
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
-  const fields = () => ({ title: title.trim(), notes: notes.trim(), priority, due_date: due, goal_id: goalId });
 
   const save = () => {
-    if (!title.trim()) return haptic.warning();
-    if (existing) patch('tasks', existing.id, fields());
-    else create('tasks', fields());
+    const t = title.trim();
+    if (!t) {
+      haptic.warning();
+      return;
+    }
+    const fields = { title: t, notes: notes.trim(), priority, due_date: due, goal_id: goalId };
+    if (existing) patch('tasks', existing.id, fields);
+    else create('tasks', fields);
     haptic.medium();
     close();
   };
@@ -52,94 +60,113 @@ export default function TaskEditor() {
       close();
     };
     if (Platform.OS === 'web') return run();
-    Alert.alert('Delete Task?', existing.title, [
+    Alert.alert('Delete mission?', existing.title, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: run },
     ]);
   };
 
-  const choosePriority = () =>
-    pick(
-      'Priority',
-      ([1, 2, 3] as Priority[]).map((p) => ({ label: `${PRIORITIES[p].name}  ·  +${XP.task[p]} XP`, onPress: () => setPriority(p) })),
-    );
-
-  const chooseGoal = () =>
-    pick('Goal', [
-      { label: 'None', onPress: () => setGoalId(null) },
-      ...goalOptions.map((g) => ({ label: g.title || 'Untitled Goal', onPress: () => setGoalId(g.id) })),
-    ]);
-
   if (!isNew && !existing) {
     return (
-      <ScrollScreen>
-        <Txt variant="title2" center style={{ marginTop: 80 }}>
-          Task not found
-        </Txt>
-      </ScrollScreen>
+      <View style={{ flex: 1, backgroundColor: c.bgElevated }}>
+        <SheetHeader kicker="MISSION" title="NOT FOUND" onClose={close} />
+      </View>
     );
   }
 
   return (
-    <>
-      <Stack.Screen options={{ title: isNew ? 'New Task' : 'Details' }} />
-      <HeaderActions
-        left={[{ key: 'cancel', label: 'Cancel', onPress: close }]}
-        right={[{ key: 'save', label: isNew ? 'Add' : 'Done', variant: 'done', disabled: !title.trim(), onPress: save }]}
-      />
-      <ScrollScreen contentContainerStyle={{ paddingTop: 12 }}>
-        <ListSection>
-          <InputRow value={title} onChangeText={setTitle} placeholder="Title" autoFocus={isNew} returnKeyType="done" onSubmitEditing={save} />
-          <InputRow value={notes} onChangeText={setNotes} placeholder="Notes" multiline />
-        </ListSection>
-
-        <ListSection style={{ marginTop: 22 }} inset={60}>
-          <Row
-            icon="calendar"
-            iconColor={c.red}
-            title="Date"
-            subtitle={due ? relativeLabel(due) : undefined}
-            right={<Switch value={!!due} onValueChange={(on) => setDue(on ? todayKey() : null)} trackColor={{ true: c.green }} />}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1, backgroundColor: c.bgElevated }}
+    >
+      <SheetHeader kicker={isNew ? 'NEW MISSION' : existing?.done ? 'COMPLETED MISSION' : 'EDIT MISSION'} title={isNew ? 'SET THE TARGET' : 'MISSION BRIEF'} onClose={close} />
+      <ScrollView
+        contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 26 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View>
+          <TextInput
+            value={title}
+            onChangeText={setTitle}
+            placeholder="What needs to get done?"
+            placeholderTextColor={c.textFaint}
+            selectionColor={accent}
+            autoFocus={isNew}
+            multiline
+            style={{ fontFamily: fonts.semibold, fontSize: 24, lineHeight: 30, color: c.text, paddingVertical: 6 }}
           />
-          {due ? <Row title="Due" right={<DateField value={due} onChange={setDue} />} /> : null}
-          {due ? (
-            <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
-              <QuickDates value={due} onChange={setDue} />
+          <Input
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="Details, steps, context…"
+            multiline
+            style={{ marginTop: 12, minHeight: 84, textAlignVertical: 'top', fontSize: 15 }}
+          />
+        </View>
+
+        <View>
+          <FieldLabel>PRIORITY</FieldLabel>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {([1, 2, 3] as Priority[]).map((p) => (
+              <Chip
+                key={p}
+                label={`${PRIORITIES[p].label} · ${PRIORITIES[p].name}`}
+                active={priority === p}
+                onPress={() => setPriority(p)}
+                style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 4 }}
+              />
+            ))}
+          </View>
+          <Txt variant="label" color={accent} style={{ marginTop: 10 }}>
+            +{XP.task[priority]} XP ON COMPLETION
+          </Txt>
+        </View>
+
+        <View>
+          <FieldLabel>DUE</FieldLabel>
+          <DatePicker value={due} onChange={setDue} noneLabel="INBOX" />
+        </View>
+
+        <View>
+          <FieldLabel>SERVES GOAL</FieldLabel>
+          {activeGoals.length ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              <Chip label="NONE" active={!goalId} onPress={() => setGoalId(null)} />
+              {activeGoals.map((g) => (
+                <Chip
+                  key={g.id}
+                  label={g.title.toUpperCase() || 'UNTITLED'}
+                  icon={GOAL_CATEGORIES[g.category]?.icon}
+                  active={goalId === g.id}
+                  onPress={() => setGoalId(g.id)}
+                />
+              ))}
+            </View>
+          ) : (
+            <Chip label="+ CREATE A GOAL FIRST" onPress={() => router.push({ pathname: '/goal/[id]', params: { id: 'new' } })} />
+          )}
+        </View>
+
+        <View style={{ gap: 10 }}>
+          <Button label={isNew ? 'LOCK IT IN' : 'SAVE'} icon={isNew ? 'flash' : 'checkmark'} onPress={save} disabled={!title.trim()} />
+          {existing ? (
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Button
+                label={existing.done ? 'REOPEN' : 'COMPLETE'}
+                icon={existing.done ? 'refresh' : 'checkmark-done'}
+                variant="outline"
+                style={{ flex: 1 }}
+                onPress={() => {
+                  if (title.trim()) patch('tasks', existing.id, { title: title.trim(), notes: notes.trim(), priority, due_date: due, goal_id: goalId });
+                  close();
+                  setTimeout(() => toggleTask(existing.id), 250);
+                }}
+              />
+              <Button label="DELETE" icon="trash-outline" variant="danger" style={{ flex: 1 }} onPress={del} />
             </View>
           ) : null}
-        </ListSection>
-
-        <ListSection style={{ marginTop: 22 }} inset={60}>
-          <Row icon="flag" iconColor={c.orange} title="Priority" value={PRIORITIES[priority].name} chevron onPress={choosePriority} />
-          <Row
-            icon="target"
-            iconColor={c.purple}
-            title="Goal"
-            value={goal && !goal.deleted ? goal.title || 'Untitled' : 'None'}
-            chevron
-            onPress={goalOptions.length ? chooseGoal : () => router.push({ pathname: '/goals/[id]', params: { id: 'new' } })}
-          />
-        </ListSection>
-        <Txt variant="footnote" color={c.label2} style={{ marginHorizontal: 16, marginTop: 7 }}>
-          Completing this task earns {XP.task[priority]} XP.
-        </Txt>
-
-        {existing ? (
-          <View style={{ marginTop: 28, gap: 10 }}>
-            <Button
-              label={existing.done ? 'Mark as Incomplete' : 'Mark as Completed'}
-              icon={existing.done ? 'undo' : 'checkCircle'}
-              variant="tinted"
-              onPress={() => {
-                if (title.trim()) patch('tasks', existing.id, fields());
-                close();
-                setTimeout(() => toggleTask(existing.id), 300);
-              }}
-            />
-            <Button label="Delete Task" variant="plain" color={c.red} onPress={del} />
-          </View>
-        ) : null}
-      </ScrollScreen>
-    </>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
