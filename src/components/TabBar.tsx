@@ -11,7 +11,7 @@ import type { IconName } from './ui';
 
 const TABS: Record<string, { label: string; icon: IconName; iconOff: IconName }> = {
   index: { label: 'TODAY', icon: 'flash', iconOff: 'flash-outline' },
-  tasks: { label: 'MISSIONS', icon: 'checkbox', iconOff: 'checkbox-outline' },
+  tasks: { label: 'TASKS', icon: 'checkbox', iconOff: 'checkbox-outline' },
   plan: { label: 'PLAN', icon: 'time', iconOff: 'time-outline' },
   goals: { label: 'GOALS', icon: 'trophy', iconOff: 'trophy-outline' },
   notes: { label: 'NOTES', icon: 'reader', iconOff: 'reader-outline' },

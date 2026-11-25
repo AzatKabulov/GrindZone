@@ -1,23 +1,21 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FxHost } from '@/components/FxHost';
+import { QuickAdd } from '@/components/ListBits';
 import { DatePicker, FieldLabel, SheetHeader } from '@/components/pickers';
-import { ProgressRing } from '@/components/ProgressRing';
 import { TaskRow } from '@/components/TaskRow';
-import { Button, Chip, Input, Press, Section, Txt } from '@/components/ui';
-import { GOAL_CATEGORIES, GOAL_CATEGORY_KEYS, type GoalCategory } from '@/lib/categories';
-import { diffDays, todayKey } from '@/lib/date';
+import { Button, Card, Input, ProgressBar, Section, Txt } from '@/components/ui';
+import { addDays, diffDays, todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
-import { XP } from '@/lib/xp';
 import { setGoalAchieved } from '@/store/actions';
 import { useData } from '@/store/data';
 import { goalProgress, goalTasks } from '@/store/selectors';
-import { alpha, fonts, useTheme } from '@/theme';
+import { fonts, useTheme } from '@/theme';
 
+/** A goal = a name, (optionally) why and a deadline, and the steps that get you there. */
 export default function GoalScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const isNew = params.id === 'new';
@@ -26,29 +24,22 @@ export default function GoalScreen() {
   const { create, patch, remove } = useData.getState();
   const { c, accent } = useTheme();
   const insets = useSafeAreaInsets();
+  const today = todayKey();
 
   const [title, setTitle] = useState(existing?.title ?? '');
   const [why, setWhy] = useState(existing?.why ?? '');
-  const [category, setCategory] = useState<GoalCategory>(existing?.category ?? 'body');
   const [target, setTarget] = useState<string | null>(existing?.target_date ?? null);
-  const [quick, setQuick] = useState('');
 
-  const linked = useMemo(() => (existing ? goalTasks(tasks, existing.id) : []), [tasks, existing]);
+  const steps = useMemo(() => (existing ? goalTasks(tasks, existing.id) : []), [tasks, existing]);
   const progress = existing ? goalProgress(existing, tasks) : { done: 0, total: 0, progress: 0 };
   const achieved = existing?.status === 'achieved';
-  const dirty =
-    !!existing &&
-    (title.trim() !== existing.title || why.trim() !== existing.why || category !== existing.category || target !== existing.target_date);
+  const dirty = !!existing && (title.trim() !== existing.title || why.trim() !== existing.why || target !== existing.target_date);
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/goals'));
-
-  const fields = () => ({ title: title.trim(), why: why.trim(), category, target_date: target });
+  const fields = () => ({ title: title.trim(), why: why.trim(), target_date: target });
 
   const save = () => {
-    if (!title.trim()) {
-      haptic.warning();
-      return;
-    }
+    if (!title.trim()) return haptic.warning();
     if (existing) {
       patch('goals', existing.id, fields());
       haptic.medium();
@@ -60,14 +51,6 @@ export default function GoalScreen() {
     }
   };
 
-  const addMission = () => {
-    const t = quick.trim();
-    if (!t || !existing) return;
-    create('tasks', { title: t, goal_id: existing.id, due_date: null });
-    haptic.medium();
-    setQuick('');
-  };
-
   const del = () => {
     if (!existing) return;
     const run = () => {
@@ -76,7 +59,7 @@ export default function GoalScreen() {
       close();
     };
     if (Platform.OS === 'web') return run();
-    Alert.alert('Delete goal?', 'Linked missions stay, they just lose the link.', [
+    Alert.alert('Delete goal?', 'Its steps stay in your task list.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: run },
     ]);
@@ -90,148 +73,81 @@ export default function GoalScreen() {
     );
   }
 
-  const daysLeft = target ? diffDays(todayKey(), target) : null;
+  const daysLeft = target ? diffDays(today, target) : null;
+  const status = achieved
+    ? 'Achieved'
+    : `${progress.done} of ${progress.total} steps done${daysLeft === null ? '' : daysLeft < 0 ? ` · ${-daysLeft} days overdue` : ` · ${daysLeft} days left`}`;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bgElevated }}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <SheetHeader
-          kicker={isNew ? 'NEW GOAL' : achieved ? 'GOAL CRUSHED' : 'GOAL'}
-          title={isNew ? 'DEFINE THE TARGET' : 'MISSION CONTROL'}
-          onClose={close}
-        />
-        <ScrollView
-          contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 24 }}
-          keyboardShouldPersistTaps="handled"
-        >
+        <SheetHeader kicker={isNew ? 'NEW' : achieved ? 'ACHIEVED' : 'GOAL'} title={isNew ? 'NEW GOAL' : 'GOAL'} onClose={close} />
+        <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 24 }} keyboardShouldPersistTaps="handled">
           {existing ? (
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 18,
-                padding: 16,
-                borderRadius: 18,
-                backgroundColor: c.surface,
-                borderWidth: 1,
-                borderColor: achieved ? alpha(accent, 0.45) : c.border,
-              }}
-            >
-              <ProgressRing value={progress.progress} size={92} stroke={8}>
-                <Txt variant="display" style={{ fontSize: 30, lineHeight: 32, marginTop: 3 }}>
+            <Card style={{ gap: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                <Txt variant="display" size={34} color={achieved ? accent : c.text}>
                   {Math.round(progress.progress * 100)}%
                 </Txt>
-              </ProgressRing>
-              <View style={{ flex: 1, gap: 6 }}>
-                <Txt variant="label">{achieved ? 'STATUS' : 'MISSIONS'}</Txt>
-                <Txt variant="h1" color={achieved ? accent : c.text}>
-                  {achieved ? 'CRUSHED' : `${progress.done} / ${progress.total}`}
-                </Txt>
-                <Txt variant="label" color={daysLeft !== null && daysLeft < 0 && !achieved ? c.danger : c.textDim}>
-                  {achieved
-                    ? `+${XP.goal} XP EARNED`
-                    : daysLeft === null
-                      ? 'NO DEADLINE'
-                      : daysLeft < 0
-                        ? `${-daysLeft} DAYS OVERDUE`
-                        : `${daysLeft} DAYS LEFT`}
+                <Txt variant="small" color={daysLeft !== null && daysLeft < 0 && !achieved ? c.danger : c.textDim} style={{ flex: 1, textAlign: 'right' }}>
+                  {status}
                 </Txt>
               </View>
-            </View>
+              <ProgressBar value={progress.progress} />
+            </Card>
           ) : null}
 
           <View>
             <TextInput
               value={title}
               onChangeText={setTitle}
-              placeholder="Name the goal"
+              placeholder="What do you want to achieve?"
               placeholderTextColor={c.textFaint}
               selectionColor={accent}
               autoFocus={isNew}
               multiline
-              style={{ fontFamily: fonts.display, fontSize: 36, lineHeight: 38, color: c.text, paddingVertical: 4, letterSpacing: 0.5 }}
+              style={{ fontFamily: fonts.display, fontSize: 34, lineHeight: 36, color: c.text, paddingVertical: 4, letterSpacing: 0.5 }}
             />
-            <Input
-              value={why}
-              onChangeText={setWhy}
-              placeholder="Why does this matter? What changes when you get it?"
-              multiline
-              style={{ marginTop: 12, minHeight: 80, textAlignVertical: 'top', fontSize: 15 }}
-            />
-          </View>
-
-          <View>
-            <FieldLabel>PILLAR</FieldLabel>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {GOAL_CATEGORY_KEYS.map((k) => (
-                <Chip
-                  key={k}
-                  label={GOAL_CATEGORIES[k].label}
-                  icon={GOAL_CATEGORIES[k].icon}
-                  active={category === k}
-                  onPress={() => setCategory(k)}
-                />
-              ))}
-            </View>
+            <Input value={why} onChangeText={setWhy} placeholder="Why it matters (optional)" multiline style={{ marginTop: 10, minHeight: 60, textAlignVertical: 'top', fontSize: 15 }} />
           </View>
 
           <View>
             <FieldLabel>DEADLINE</FieldLabel>
-            <DatePicker value={target} onChange={setTarget} noneLabel="NO DEADLINE" />
+            <DatePicker
+              value={target}
+              onChange={setTarget}
+              options={[
+                { label: '1 MONTH', v: addDays(today, 30) },
+                { label: '3 MONTHS', v: addDays(today, 91) },
+                { label: '1 YEAR', v: addDays(today, 365) },
+                { label: 'NONE', v: null },
+              ]}
+            />
           </View>
 
-          {isNew || dirty ? (
-            <Button label={isNew ? 'LOCK IN THE GOAL' : 'SAVE CHANGES'} icon="locate" onPress={save} disabled={!title.trim()} />
-          ) : null}
+          {isNew || dirty ? <Button label={isNew ? 'ADD GOAL' : 'SAVE'} icon={isNew ? 'add' : 'checkmark'} onPress={save} disabled={!title.trim()} /> : null}
 
           {existing ? (
             <View>
-              <Section label="LINKED MISSIONS" count={linked.length} style={{ marginBottom: 12 }} />
-              <View style={{ gap: 8 }}>
-                {linked.map((t) => (
-                  <TaskRow key={t.id} task={t} showGoal={false} compact />
+              <Section label="STEPS" count={steps.length} style={{ marginBottom: 12 }} />
+              <QuickAdd placeholder="Add the next step…" onAdd={(t) => create('tasks', { title: t, goal_id: existing.id, due_date: null })} />
+              <View style={{ gap: 8, marginTop: 8 }}>
+                {steps.map((t) => (
+                  <TaskRow key={t.id} task={t} showGoal={false} />
                 ))}
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 12,
-                    paddingHorizontal: 14,
-                    height: 50,
-                    borderRadius: 14,
-                    borderWidth: 1,
-                    borderStyle: 'dashed',
-                    borderColor: c.borderStrong,
-                  }}
-                >
-                  <Ionicons name="add" size={20} color={accent} />
-                  <TextInput
-                    value={quick}
-                    onChangeText={setQuick}
-                    onSubmitEditing={addMission}
-                    placeholder="Break it down: next mission…"
-                    placeholderTextColor={c.textFaint}
-                    selectionColor={accent}
-                    returnKeyType="done"
-                    submitBehavior="submit"
-                    style={{ flex: 1, fontFamily: fonts.medium, fontSize: 15, color: c.text, height: '100%' }}
-                  />
-                  {quick.trim() ? (
-                    <Press onPress={addMission} tapHaptic>
-                      <Txt variant="label" color={accent}>
-                        ADD
-                      </Txt>
-                    </Press>
-                  ) : null}
-                </View>
               </View>
+              {steps.length === 0 ? (
+                <Txt variant="small" color={c.textFaint} style={{ marginTop: 12 }}>
+                  Break the goal into small steps. Progress fills up as you finish them.
+                </Txt>
+              ) : null}
             </View>
           ) : null}
 
           {existing ? (
             <View style={{ gap: 10 }}>
               <Button
-                label={achieved ? 'REOPEN GOAL' : 'MARK AS CRUSHED'}
+                label={achieved ? 'NOT ACHIEVED YET' : 'MARK AS ACHIEVED'}
                 icon={achieved ? 'refresh' : 'trophy'}
                 variant={achieved ? 'outline' : 'primary'}
                 onPress={() => {

@@ -8,7 +8,7 @@ interface SettingsState {
   mode: ThemeMode;
   accent: AccentKey;
   haptics: boolean;
-  /** Display name / callsign shown on Today. */
+  /** Display name. */
   name: string;
   /** User chose to use the app without an account (local only). */
   guest: boolean;

@@ -16,13 +16,13 @@ export default function NotesScreen() {
   const create = useData((s) => s.create);
   const [q, setQ] = useState('');
 
-  const { pinned, rest, total } = useMemo(() => {
+  const { pinned, rest, total, all } = useMemo(() => {
     const query = q.trim().toLowerCase();
-    const list = alive(notes)
-      .filter((n) => n.title.trim() || n.body.trim())
+    const written = alive(notes).filter((n) => n.title.trim() || n.body.trim());
+    const list = written
       .filter((n) => !query || n.title.toLowerCase().includes(query) || n.body.toLowerCase().includes(query))
       .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-    return { pinned: list.filter((n) => n.pinned), rest: list.filter((n) => !n.pinned), total: list.length };
+    return { pinned: list.filter((n) => n.pinned), rest: list.filter((n) => !n.pinned), total: list.length, all: written.length };
   }, [notes, q]);
 
   const newNote = () => {
@@ -38,10 +38,11 @@ export default function NotesScreen() {
         showsVerticalScrollIndicator={false}
       >
         <ScreenTitle
-          kicker={`${total} ENTRIES · FIELD JOURNAL`}
+          kicker={all ? `${all} ${all === 1 ? 'NOTE' : 'NOTES'}` : undefined}
           title="NOTES"
           right={<IconBtn icon="create-outline" accentFill onPress={newNote} />}
         />
+        {all > 5 ? (
         <View
           style={{
             flexDirection: 'row',
@@ -71,6 +72,7 @@ export default function NotesScreen() {
             </Press>
           ) : null}
         </View>
+        ) : null}
 
         {total === 0 ? (
           q ? (
@@ -78,9 +80,9 @@ export default function NotesScreen() {
           ) : (
             <Empty
               icon="reader-outline"
-              title="EMPTY JOURNAL"
-              text="Ideas, lessons, reflections. Write it down — what gets written gets done."
-              action="WRITE FIRST NOTE"
+              title="NO NOTES YET"
+              text="Ideas, lessons, plans. Write it down so it doesn't get lost."
+              action="NEW NOTE"
               onAction={newNote}
             />
           )
@@ -89,13 +91,13 @@ export default function NotesScreen() {
         {pinned.length ? (
           <>
             <Section label="PINNED" count={pinned.length} style={{ marginBottom: 12 }} />
-            <Grid notes={pinned} />
+            <List notes={pinned} />
           </>
         ) : null}
         {rest.length ? (
           <>
             {pinned.length ? <Section label="ALL NOTES" count={rest.length} style={{ marginTop: 22, marginBottom: 12 }} /> : null}
-            <Grid notes={rest} />
+            <List notes={rest} />
           </>
         ) : null}
       </ScrollView>
@@ -103,21 +105,12 @@ export default function NotesScreen() {
   );
 }
 
-function Grid({ notes }: { notes: Note[] }) {
-  const left = notes.filter((_, i) => i % 2 === 0);
-  const right = notes.filter((_, i) => i % 2 === 1);
+function List({ notes }: { notes: Note[] }) {
   return (
-    <View style={{ flexDirection: 'row', gap: 10 }}>
-      <View style={{ flex: 1, gap: 10 }}>
-        {left.map((n, i) => (
-          <NoteCard key={n.id} note={n} index={i * 2} />
-        ))}
-      </View>
-      <View style={{ flex: 1, gap: 10 }}>
-        {right.map((n, i) => (
-          <NoteCard key={n.id} note={n} index={i * 2 + 1} />
-        ))}
-      </View>
+    <View style={{ gap: 8 }}>
+      {notes.map((n, i) => (
+        <NoteCard key={n.id} note={n} index={i} />
+      ))}
     </View>
   );
 }
@@ -127,7 +120,6 @@ function NoteCard({ note, index }: { note: Note; index: number }) {
   const today = todayKey();
   const day = isoToKey(note.updated_at) ?? today;
   const when = day === today ? fmtClock(note.updated_at) : relativeLabel(day, today);
-  const lines = Math.min(8, 3 + (note.body.length % 5));
   return (
     <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 40).duration(350)}>
       <Press
@@ -139,22 +131,20 @@ function NoteCard({ note, index }: { note: Note; index: number }) {
           backgroundColor: c.surface,
           borderWidth: 1,
           borderColor: note.pinned ? alpha(accent, 0.4) : c.border,
-          gap: 8,
+          gap: 4,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {note.pinned ? <Ionicons name="pin" size={11} color={accent} /> : null}
-          <Txt variant="label" style={{ fontSize: 9 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {note.pinned ? <Ionicons name="pin" size={12} color={accent} /> : null}
+          <Txt variant="title" numberOfLines={1} style={{ flex: 1, fontSize: 15.5 }}>
+            {note.title.trim() || note.body.trim().split('\n')[0]}
+          </Txt>
+          <Txt variant="label" style={{ fontSize: 9.5 }}>
             {when}
           </Txt>
         </View>
-        {note.title ? (
-          <Txt variant="title" numberOfLines={2} style={{ fontSize: 15.5 }}>
-            {note.title}
-          </Txt>
-        ) : null}
-        {note.body ? (
-          <Txt variant="small" color={c.textDim} numberOfLines={lines}>
+        {note.title.trim() && note.body.trim() ? (
+          <Txt variant="small" color={c.textDim} numberOfLines={2}>
             {note.body}
           </Txt>
         ) : null}

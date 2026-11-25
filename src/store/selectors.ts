@@ -16,7 +16,7 @@ export function sortTasks(a: Task, b: Task): number {
 
 const byDoneDesc = (a: Task, b: Task) => ((a.done_at ?? '') < (b.done_at ?? '') ? 1 : -1);
 
-/** Missions for a given day: open ones due that day or earlier (overdue), plus ones completed that day. */
+/** Tasks for a given day: open ones due that day or earlier (overdue), plus ones completed that day. */
 export function tasksForDay(tasks: Record<string, Task>, day: string) {
   const list = alive(tasks);
   const open = list.filter((t) => !t.done && t.due_date && t.due_date <= day).sort(sortTasks);

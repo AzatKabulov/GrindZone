@@ -1,12 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, Text, View } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { addDays, dateKey, fmtMin, monthLong, parseKey, relativeLabel, todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
-import { alpha, fonts, useTheme } from '@/theme';
+import { fonts, useTheme } from '@/theme';
 import { Chip, Press, Txt, type IconName } from './ui';
 
 /* ─────────────────────────── Date picker ─────────────────────────── */
@@ -16,19 +15,22 @@ export function DatePicker({
   onChange,
   allowNone = true,
   noneLabel = 'NO DATE',
+  options,
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
   allowNone?: boolean;
   noneLabel?: string;
+  /** Override the quick-pick chips (a calendar "PICK" chip is always added). */
+  options?: { label: string; v: string | null }[];
 }) {
   const today = todayKey();
-  const quick: { label: string; v: string | null }[] = [
+  const quick: { label: string; v: string | null }[] = options ?? [
     { label: 'TODAY', v: today },
     { label: 'TOMORROW', v: addDays(today, 1) },
     { label: '+1 WEEK', v: addDays(today, 7) },
   ];
-  if (allowNone) quick.push({ label: noneLabel, v: null });
+  if (!options && allowNone) quick.push({ label: noneLabel, v: null });
   const isQuick = quick.some((q) => q.v === value);
   const [open, setOpen] = useState(false);
 
@@ -224,101 +226,6 @@ export function TimeStepper({
         {btn(1, 'add')}
       </View>
     </View>
-  );
-}
-
-/* ─────────────────────────── Action sheet ─────────────────────────── */
-
-export interface SheetAction {
-  label: string;
-  icon: IconName;
-  onPress: () => void;
-  destructive?: boolean;
-}
-
-export function ActionSheet({
-  visible,
-  title,
-  actions,
-  onClose,
-}: {
-  visible: boolean;
-  title?: string;
-  actions: SheetAction[];
-  onClose: () => void;
-}) {
-  const { c, accent } = useTheme();
-  const insets = useSafeAreaInsets();
-  return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      {visible ? (
-        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-          <Animated.View entering={FadeIn.duration(160)} exiting={FadeOut.duration(160)} style={StyleSheet.absoluteFill}>
-            <Pressable style={{ flex: 1, backgroundColor: c.scrim }} onPress={onClose} />
-          </Animated.View>
-          <Animated.View
-            entering={SlideInDown.springify().damping(20)}
-            exiting={SlideOutDown.duration(180)}
-            style={{
-              backgroundColor: c.surface,
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              borderWidth: 1,
-              borderColor: c.border,
-              paddingTop: 10,
-              paddingHorizontal: 16,
-              paddingBottom: insets.bottom + 16,
-            }}
-          >
-            <View style={{ alignSelf: 'center', width: 38, height: 4, borderRadius: 2, backgroundColor: c.surface3, marginBottom: 14 }} />
-            {title ? (
-              <Txt variant="label" style={{ marginBottom: 10, marginLeft: 4 }}>
-                {title}
-              </Txt>
-            ) : null}
-            <ScrollView bounces={false} style={{ maxHeight: 420 }}>
-              {actions.map((a) => (
-                <Press
-                  key={a.label}
-                  tapHaptic
-                  scaleTo={0.98}
-                  onPress={() => {
-                    onClose();
-                    setTimeout(a.onPress, 120);
-                  }}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 14,
-                    paddingVertical: 14,
-                    paddingHorizontal: 12,
-                    borderRadius: 12,
-                    backgroundColor: c.surface2,
-                    marginBottom: 8,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: 10,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: alpha(a.destructive ? c.danger : accent, 0.14),
-                    }}
-                  >
-                    <Ionicons name={a.icon} size={17} color={a.destructive ? c.danger : accent} />
-                  </View>
-                  <Txt variant="title" color={a.destructive ? c.danger : c.text}>
-                    {a.label}
-                  </Txt>
-                </Press>
-              ))}
-            </ScrollView>
-          </Animated.View>
-        </View>
-      ) : null}
-    </Modal>
   );
 }
 
