@@ -14,7 +14,7 @@ const TABS: Record<string, { label: string; icon: IconName; iconOff: IconName }>
   tasks: { label: 'TASKS', icon: 'checkbox', iconOff: 'checkbox-outline' },
   plan: { label: 'PLAN', icon: 'time', iconOff: 'time-outline' },
   goals: { label: 'GOALS', icon: 'trophy', iconOff: 'trophy-outline' },
-  notes: { label: 'NOTES', icon: 'reader', iconOff: 'reader-outline' },
+  habits: { label: 'HABITS', icon: 'repeat', iconOff: 'repeat-outline' },
 };
 
 export function TabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {

@@ -1,21 +1,21 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Switch, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { EmojiPicker } from '@/components/EmojiPicker';
 import { DatePicker, FieldLabel, SheetHeader } from '@/components/pickers';
-import { Button, Chip, Input, Press, Txt } from '@/components/ui';
-import { isImportant } from '@/lib/categories';
+import { Subtasks } from '@/components/Subtasks';
+import { Button, Chip, Input } from '@/components/ui';
+import { PRIORITIES, type Priority } from '@/lib/categories';
 import { addDays, todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
-import { XP } from '@/lib/xp';
 import { toggleTask } from '@/store/actions';
-import { useData } from '@/store/data';
+import { useData, uuid, type Subtask } from '@/store/data';
 import { alive } from '@/store/selectors';
-import { alpha, fonts, useTheme } from '@/theme';
+import { fonts, useTheme } from '@/theme';
 
-/** Task editor: what, when, is it important, (optionally) which goal. That's it. */
+/** Task editor: what, when, how important, an emoji, the steps, and (optionally) the goal it serves. */
 export default function TaskEditor() {
   const params = useLocalSearchParams<{ id: string; due?: string; goal?: string }>();
   const isNew = params.id === 'new';
@@ -28,14 +28,16 @@ export default function TaskEditor() {
 
   const [title, setTitle] = useState(existing?.title ?? '');
   const [notes, setNotes] = useState(existing?.notes ?? '');
-  const [important, setImportant] = useState(existing ? isImportant(existing.priority) : false);
+  const [emoji, setEmoji] = useState(existing?.emoji ?? '');
+  const [priority, setPriority] = useState<Priority>(existing?.priority ?? 2);
+  const [steps, setSteps] = useState<Subtask[]>(existing?.subtasks ?? []);
   const [due, setDue] = useState<string | null>(existing ? existing.due_date : params.due === 'none' ? null : (params.due ?? today));
   const [goalId, setGoalId] = useState<string | null>(existing?.goal_id ?? params.goal ?? null);
 
   const activeGoals = useMemo(() => alive(goals).filter((g) => g.status === 'active' || g.id === goalId), [goals, goalId]);
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
-  const fields = () => ({ title: title.trim(), notes: notes.trim(), priority: important ? (1 as const) : (2 as const), due_date: due, goal_id: goalId });
+  const fields = () => ({ title: title.trim(), notes: notes.trim(), emoji, priority, subtasks: steps, due_date: due, goal_id: goalId });
 
   const save = () => {
     if (!title.trim()) return haptic.warning();
@@ -72,23 +74,20 @@ export default function TaskEditor() {
       <SheetHeader kicker={isNew ? 'NEW' : existing?.done ? 'DONE' : 'EDIT'} title={isNew ? 'NEW TASK' : 'TASK'} onClose={close} />
       <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 24 }} keyboardShouldPersistTaps="handled">
         <View>
-          <TextInput
-            value={title}
-            onChangeText={setTitle}
-            placeholder="What needs to get done?"
-            placeholderTextColor={c.textFaint}
-            selectionColor={accent}
-            autoFocus={isNew}
-            multiline
-            style={{ fontFamily: fonts.semibold, fontSize: 24, lineHeight: 30, color: c.text, paddingVertical: 6 }}
-          />
-          <Input
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Note (optional)"
-            multiline
-            style={{ marginTop: 10, minHeight: 60, textAlignVertical: 'top', fontSize: 15 }}
-          />
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+            {emoji ? <Text style={{ fontSize: 30, lineHeight: 40 }}>{emoji}</Text> : null}
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
+              placeholder="What needs to get done?"
+              placeholderTextColor={c.textFaint}
+              selectionColor={accent}
+              autoFocus={isNew}
+              multiline
+              style={{ flex: 1, minWidth: 0, fontFamily: fonts.semibold, fontSize: 24, lineHeight: 30, color: c.text, paddingVertical: 6 }}
+            />
+          </View>
+          <Input value={notes} onChangeText={setNotes} placeholder="Note (optional)" multiline style={{ marginTop: 10, minHeight: 60, textAlignVertical: 'top', fontSize: 15 }} />
         </View>
 
         <View>
@@ -104,37 +103,36 @@ export default function TaskEditor() {
           />
         </View>
 
-        <Press
-          scaleTo={0.98}
-          onPress={() => setImportant((v) => !v)}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 12,
-            padding: 14,
-            borderRadius: 14,
-            borderWidth: 1,
-            borderColor: important ? alpha(accent, 0.45) : c.border,
-            backgroundColor: important ? alpha(accent, 0.08) : c.surface,
-          }}
-        >
-          <Ionicons name="flame" size={20} color={important ? accent : c.textFaint} />
-          <View style={{ flex: 1 }}>
-            <Txt variant="title">Important</Txt>
-            <Txt variant="small" color={c.textDim}>
-              Shows first · +{XP.task[1]} XP instead of +{XP.task[2]}
-            </Txt>
+        <View>
+          <FieldLabel>PRIORITY</FieldLabel>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {([1, 2, 3] as Priority[]).map((p) => (
+              <Chip
+                key={p}
+                label={PRIORITIES[p].label}
+                icon={p === 1 ? 'flame' : p === 3 ? 'arrow-down' : undefined}
+                active={priority === p}
+                onPress={() => setPriority(p)}
+                style={{ flex: 1, justifyContent: 'center' }}
+              />
+            ))}
           </View>
-          <Switch
-            value={important}
-            onValueChange={(v) => {
-              haptic.tap();
-              setImportant(v);
-            }}
-            trackColor={{ true: accent, false: c.surface3 }}
-            thumbColor="#FFFFFF"
+        </View>
+
+        <View>
+          <FieldLabel>STEPS</FieldLabel>
+          <Subtasks
+            items={steps}
+            onToggle={(id) => setSteps((l) => l.map((x) => (x.id === id ? { ...x, done: !x.done } : x)))}
+            onRemove={(id) => setSteps((l) => l.filter((x) => x.id !== id))}
+            onAdd={(t) => setSteps((l) => [...l, { id: uuid(), title: t, done: false }])}
           />
-        </Press>
+        </View>
+
+        <View>
+          <FieldLabel>EMOJI</FieldLabel>
+          <EmojiPicker value={emoji} onChange={setEmoji} />
+        </View>
 
         {activeGoals.length ? (
           <View>

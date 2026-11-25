@@ -12,6 +12,8 @@ interface SettingsState {
   name: string;
   /** User chose to use the app without an account (local only). */
   guest: boolean;
+  /** Your own headline for Today; empty = rotating daily quotes. */
+  customMantra: string;
   hydrated: boolean;
   set: (patch: Partial<Omit<SettingsState, 'set' | 'hydrated'>>) => void;
 }
@@ -24,6 +26,7 @@ export const useSettings = create<SettingsState>()(
       haptics: true,
       name: '',
       guest: false,
+      customMantra: '',
       hydrated: false,
       set: (patch) => set(patch),
     }),

@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { addDays, dateKey, fmtMin, monthLong, parseKey, relativeLabel, todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
 import { fonts, useTheme } from '@/theme';
-import { Chip, Press, Txt, type IconName } from './ui';
+import { Button, Chip, Press, Txt, type IconName } from './ui';
 
 /* ─────────────────────────── Date picker ─────────────────────────── */
 
@@ -226,6 +228,124 @@ export function TimeStepper({
         {btn(1, 'add')}
       </View>
     </View>
+  );
+}
+
+/* ─────────────────────────── Exact time field ─────────────────────────── */
+
+/** Shows a time; tap it to set any minute with the iOS wheel (or steppers on web). */
+export function TimeField({
+  label,
+  value,
+  onChange,
+  min = 0,
+  max = 1439,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+}) {
+  const { c, accent } = useTheme();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Press
+        tapHaptic
+        scaleTo={0.97}
+        onPress={() => setOpen(true)}
+        style={{
+          flex: 1,
+          backgroundColor: c.surface2,
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: open ? accent : c.border,
+          padding: 12,
+          gap: 4,
+        }}
+      >
+        <Txt variant="label">{label}</Txt>
+        <Txt variant="display" style={{ fontSize: 38, lineHeight: 40, marginTop: 2 }}>
+          {fmtMin(value)}
+        </Txt>
+        <Txt variant="small" color={c.textFaint}>
+          Tap to change
+        </Txt>
+      </Press>
+      {open ? (
+        <TimeSheet
+          title={label}
+          value={value}
+          onChange={(v) => onChange(Math.max(min, Math.min(max, v)))}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function TimeSheet({
+  title,
+  value,
+  onChange,
+  onClose,
+}: {
+  title: string;
+  value: number;
+  onChange: (v: number) => void;
+  onClose: () => void;
+}) {
+  const { c, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const asDate = new Date(2000, 0, 1, Math.floor(value / 60), value % 60);
+  return (
+    <Modal transparent animationType="fade" visible onRequestClose={onClose}>
+      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+        <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: c.scrim }]} onPress={onClose} />
+        <View
+          style={{
+            backgroundColor: c.surface,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            borderWidth: 1,
+            borderColor: c.border,
+            padding: 20,
+            paddingBottom: insets.bottom + 16,
+            gap: 12,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Txt variant="label" style={{ flex: 1 }}>
+              {title}
+            </Txt>
+            <Txt variant="display" style={{ fontSize: 30, lineHeight: 32 }}>
+              {fmtMin(value)}
+            </Txt>
+          </View>
+          {Platform.OS === 'ios' || Platform.OS === 'android' ? (
+            <DateTimePicker
+              value={asDate}
+              mode="time"
+              display="spinner"
+              is24Hour
+              locale="en_GB"
+              minuteInterval={1}
+              themeVariant={isDark ? 'dark' : 'light'}
+              textColor={c.text}
+              onValueChange={(_, d) => onChange(d.getHours() * 60 + d.getMinutes())}
+              style={{ alignSelf: 'stretch' }}
+            />
+          ) : (
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TimeStepper label="HOUR" value={value} step={60} onChange={onChange} max={1439} />
+              <TimeStepper label="MINUTE" value={value} step={1} onChange={onChange} max={1439} />
+            </View>
+          )}
+          <Button label="DONE" icon="checkmark" onPress={onClose} />
+        </View>
+      </View>
+    </Modal>
   );
 }
 

@@ -1,55 +1,74 @@
 import { create } from 'zustand';
 
-/** Visual rewards: floating XP toasts and full-screen celebrations. */
+import { nextQuote, type Quote } from '@/lib/quotes';
 
-export interface Toast {
+/** Visual rewards: a fresh quote when you finish something, and full-screen celebrations. */
+
+export interface Toast extends Quote {
   id: number;
-  text: string;
-  sub?: string;
+  /** Small caps line above the quote, e.g. "TASK DONE". */
+  label: string;
 }
 
-export type OverlayKind = 'levelup' | 'daywon' | 'goal';
+export type OverlayKind = 'daywon' | 'goal';
 
 export interface Overlay {
   id: number;
   kind: OverlayKind;
   kicker: string;
   title: string;
-  subtitle: string;
+  quote: Quote;
 }
 
 interface FxState {
-  toasts: Toast[];
+  toast: Toast | null;
   overlay: Overlay | null;
-  toast: (text: string, sub?: string) => void;
-  celebrate: (o: Omit<Overlay, 'id'>) => void;
+  /** Show a new quote under a small label. */
+  cheer: (label: string) => void;
+  /** Plain info toast (no quote). */
+  info: (label: string, text: string) => void;
+  dismissToast: () => void;
+  celebrate: (o: Omit<Overlay, 'id' | 'quote'>) => void;
   dismiss: () => void;
 }
 
 let seq = 1;
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
 let overlayTimer: ReturnType<typeof setTimeout> | undefined;
 
-export const useFx = create<FxState>((set, get) => ({
-  toasts: [],
-  overlay: null,
-  toast: (text, sub) => {
+export const useFx = create<FxState>((set, get) => {
+  const show = (t: Omit<Toast, 'id'>, ms: number) => {
     const id = seq++;
-    set((s) => ({ toasts: [...s.toasts.slice(-2), { id, text, sub }] }));
-    setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 1900);
-  },
-  celebrate: (o) => {
-    const id = seq++;
-    // A level-up beats a day-won if both fire on the same tap; never stack overlays.
-    const cur = get().overlay;
-    if (cur && cur.kind === 'levelup' && o.kind !== 'goal') return;
-    set({ overlay: { ...o, id } });
-    clearTimeout(overlayTimer);
-    overlayTimer = setTimeout(() => {
-      if (get().overlay?.id === id) set({ overlay: null });
-    }, 3200);
-  },
-  dismiss: () => {
-    clearTimeout(overlayTimer);
-    set({ overlay: null });
-  },
-}));
+    set({ toast: { ...t, id } });
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      if (get().toast?.id === id) set({ toast: null });
+    }, ms);
+  };
+  return {
+    toast: null,
+    overlay: null,
+    cheer: (label) => {
+      const q = nextQuote();
+      show({ label, ...q }, Math.min(6500, 2600 + q.text.length * 35));
+    },
+    info: (label, text) => show({ label, text }, 2200),
+    dismissToast: () => {
+      clearTimeout(toastTimer);
+      set({ toast: null });
+    },
+    celebrate: (o) => {
+      const id = seq++;
+      clearTimeout(toastTimer);
+      set({ overlay: { ...o, id, quote: nextQuote() }, toast: null });
+      clearTimeout(overlayTimer);
+      overlayTimer = setTimeout(() => {
+        if (get().overlay?.id === id) set({ overlay: null });
+      }, 5200);
+    },
+    dismiss: () => {
+      clearTimeout(overlayTimer);
+      set({ overlay: null });
+    },
+  };
+});

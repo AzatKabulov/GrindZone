@@ -3,9 +3,8 @@ import * as Crypto from 'expo-crypto';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import type { BlockCategory, GoalCategory } from '@/lib/categories';
+import type { BlockCategory, GoalCategory, Priority } from '@/lib/categories';
 import { nowIso, todayKey } from '@/lib/date';
-import type { Priority } from '@/lib/xp';
 
 /**
  * Local-first data store.
@@ -14,8 +13,8 @@ import type { Priority } from '@/lib/xp';
  * Deletes are soft (tombstones) so they propagate to other devices.
  */
 
-export type TableName = 'goals' | 'tasks' | 'blocks' | 'notes';
-export const TABLES: TableName[] = ['goals', 'tasks', 'blocks', 'notes'];
+export type TableName = 'goals' | 'tasks' | 'blocks' | 'notes' | 'habits';
+export const TABLES: TableName[] = ['goals', 'tasks', 'blocks', 'notes', 'habits'];
 
 interface Base {
   id: string;
@@ -24,9 +23,17 @@ interface Base {
   deleted: boolean;
 }
 
+export interface Subtask {
+  id: string;
+  title: string;
+  done: boolean;
+}
+
 export interface Task extends Base {
   title: string;
   notes: string;
+  emoji: string;
+  subtasks: Subtask[];
   priority: Priority;
   due_date: string | null;
   goal_id: string | null;
@@ -62,11 +69,20 @@ export interface Note extends Base {
   pinned: boolean;
 }
 
+export interface Habit extends Base {
+  title: string;
+  emoji: string;
+  /** Days (YYYY-MM-DD) the habit was done. */
+  checks: string[];
+  sort_order: number;
+}
+
 export interface RowMap {
   goals: Goal;
   tasks: Task;
   blocks: Block;
   notes: Note;
+  habits: Habit;
 }
 
 type Fields<K extends TableName> = Omit<RowMap[K], keyof Base>;
@@ -84,6 +100,8 @@ const FIELDS: { [K in TableName]: () => Fields<K> } = {
   tasks: () => ({
     title: '',
     notes: '',
+    emoji: '',
+    subtasks: [],
     priority: 2,
     due_date: null,
     goal_id: null,
@@ -102,6 +120,7 @@ const FIELDS: { [K in TableName]: () => Fields<K> } = {
     done_at: null,
   }),
   notes: () => ({ title: '', body: '', pinned: false }),
+  habits: () => ({ title: '', emoji: '', checks: [], sort_order: 0 }),
 };
 
 type TablesState = { [K in TableName]: Record<string, RowMap[K]> };
@@ -129,7 +148,7 @@ interface DataState extends TablesState {
   adopt: (ownerId: string) => void;
 }
 
-const emptyTables = (): TablesState => ({ goals: {}, tasks: {}, blocks: {}, notes: {} });
+const emptyTables = (): TablesState => ({ goals: {}, tasks: {}, blocks: {}, notes: {}, habits: {} });
 
 /** Server timestamps look like 2026-11-24T14:31:55.79129+00:00 — normalise to JS ISO. */
 function normTs(v: unknown): string | null {
@@ -271,13 +290,21 @@ export const useData = create<DataState>()(
     }),
     {
       name: 'gz-data',
-      version: 1,
+      version: 2,
+      // v2: tasks gained `emoji` and `subtasks`; habits table added.
+      migrate: (persisted) => {
+        const st = (persisted ?? {}) as Partial<TablesState>;
+        const tasks: Record<string, Task> = {};
+        for (const [id, t] of Object.entries(st.tasks ?? {})) tasks[id] = { ...FIELDS.tasks(), ...t };
+        return { ...st, tasks, habits: st.habits ?? {} } as DataState;
+      },
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({
         goals: s.goals,
         tasks: s.tasks,
         blocks: s.blocks,
         notes: s.notes,
+        habits: s.habits,
         dirty: s.dirty,
         cursors: s.cursors,
         ownerId: s.ownerId,
