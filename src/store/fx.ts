@@ -46,7 +46,7 @@ export const useFx = create<FxState>((set, get) => ({
     clearTimeout(overlayTimer);
     overlayTimer = setTimeout(() => {
       if (get().overlay?.id === id) set({ overlay: null });
-    }, 3200);
+    }, 6000);
   },
   dismiss: () => {
     clearTimeout(overlayTimer);

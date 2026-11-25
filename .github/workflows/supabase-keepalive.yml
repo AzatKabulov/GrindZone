@@ -1,0 +1,21 @@
+# Free Supabase projects pause after 7 days without traffic.
+# This pings the GrindZone API twice a week so the backend never falls asleep.
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: '17 6 * * 1,4'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: https://qcsaphbfgmcnfpdcvsht.supabase.co
+          # Publishable key: safe to expose, every table is protected by Row Level Security.
+          SUPABASE_KEY: sb_publishable_BGpSEJtAc5F_QMWbE4ppCg_9-Z6jNt7
+        run: |
+          curl -fsS "$SUPABASE_URL/auth/v1/health" -H "apikey: $SUPABASE_KEY" -o /dev/null -w "auth %{http_code}\n"
+          curl -fsS "$SUPABASE_URL/rest/v1/tasks?select=id&limit=1" -H "apikey: $SUPABASE_KEY" -o /dev/null -w "rest %{http_code}\n"
