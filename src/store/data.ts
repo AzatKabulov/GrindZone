@@ -139,6 +139,8 @@ interface DataState extends TablesState {
   createMany: <K extends TableName>(table: K, list: Partial<Fields<K>>[]) => void;
   patch: <K extends TableName>(table: K, id: string, patch: Partial<Fields<K>>) => void;
   remove: (table: TableName, id: string) => void;
+  /** Undo a delete. */
+  restore: (table: TableName, id: string) => void;
 
   mergeRemote: (table: TableName, rows: Record<string, unknown>[]) => void;
   markClean: (table: TableName, items: { id: string; updated_at: string }[]) => void;
@@ -246,6 +248,19 @@ export const useData = create<DataState>()(
           [table]: {
             ...s[table],
             [id]: { ...cur, deleted: true, updated_at: new Date(now).toISOString() },
+          },
+          dirty: { ...s.dirty, [`${table}:${id}`]: true },
+        }) as Partial<DataState>);
+      },
+
+      restore: (table, id) => {
+        const cur = get()[table][id];
+        if (!cur || !cur.deleted) return;
+        const now = Math.max(Date.now(), ms(cur.updated_at) + 1);
+        set((s) => ({
+          [table]: {
+            ...s[table],
+            [id]: { ...cur, deleted: false, updated_at: new Date(now).toISOString() },
           },
           dirty: { ...s.dirty, [`${table}:${id}`]: true },
         }) as Partial<DataState>);

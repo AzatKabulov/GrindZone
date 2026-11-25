@@ -8,6 +8,8 @@ export interface Toast extends Quote {
   id: number;
   /** Small caps line above the quote, e.g. "TASK DONE". */
   label: string;
+  /** Runs when the toast is tapped (e.g. undo), then the toast closes. */
+  onPress?: () => void;
 }
 
 export type OverlayKind = 'daywon' | 'goal';
@@ -25,8 +27,8 @@ interface FxState {
   overlay: Overlay | null;
   /** Show a new quote under a small label. */
   cheer: (label: string) => void;
-  /** Plain info toast (no quote). */
-  info: (label: string, text: string) => void;
+  /** Plain info toast (no quote). Tapping it runs `onPress` if given. */
+  info: (label: string, text: string, onPress?: () => void) => void;
   dismissToast: () => void;
   celebrate: (o: Omit<Overlay, 'id' | 'quote'>) => void;
   dismiss: () => void;
@@ -52,7 +54,7 @@ export const useFx = create<FxState>((set, get) => {
       const q = nextQuote();
       show({ label, ...q }, Math.min(6500, 2600 + q.text.length * 35));
     },
-    info: (label, text) => show({ label, text }, 2200),
+    info: (label, text, onPress) => show({ label, text, onPress }, onPress ? 4000 : 2200),
     dismissToast: () => {
       clearTimeout(toastTimer);
       set({ toast: null });

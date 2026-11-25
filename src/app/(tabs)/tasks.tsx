@@ -4,11 +4,12 @@ import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 
 import { DoneToggle, QuickAdd } from '@/components/ListBits';
 import { ReorderableTasks } from '@/components/ReorderableTasks';
+import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { TaskRow } from '@/components/TaskRow';
 import { IconBtn, Screen, ScreenTitle, Section, TAB_BAR_SPACE, Txt } from '@/components/ui';
 import { todayKey } from '@/lib/date';
 import { useData, type Task } from '@/store/data';
-import { useDrag } from '@/store/drag';
+import { closeSwipes, useDrag } from '@/store/drag';
 import { alive, sortTasks, sortTasksByDue } from '@/store/selectors';
 import { useTheme } from '@/theme';
 
@@ -48,6 +49,7 @@ export default function TasksScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           scrollEnabled={!dragging}
+          onScrollBeginDrag={closeSwipes}
         >
           <ScreenTitle
             kicker={openCount ? `${openCount} OPEN` : 'ALL CLEAR'}
@@ -76,7 +78,9 @@ export default function TasksScreen() {
           {showDone ? (
             <View style={{ gap: 8 }}>
               {done.map((t) => (
-                <TaskRow key={t.id} task={t} />
+                <SwipeToDelete key={t.id} id={t.id}>
+                  <TaskRow task={t} />
+                </SwipeToDelete>
               ))}
             </View>
           ) : null}

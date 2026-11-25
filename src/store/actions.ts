@@ -141,3 +141,16 @@ export function moveTask(list: Task[], from: number, to: number) {
     if (t.sort_order !== i + 1) patch('tasks', t.id, { sort_order: i + 1 });
   });
 }
+
+/** Delete a task, with a toast you can tap to undo. */
+export function deleteTask(id: string) {
+  const { tasks, remove, restore } = useData.getState();
+  const task = tasks[id];
+  if (!task) return;
+  remove('tasks', id);
+  haptic.warning();
+  useFx.getState().info('TASK DELETED · TAP TO UNDO', task.title || 'Untitled task', () => {
+    restore('tasks', id);
+    haptic.light();
+  });
+}

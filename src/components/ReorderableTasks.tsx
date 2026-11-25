@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef } from 'react';
 import { View, type ViewInstance } from 'react-native';
-import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
+import { GestureDetector, useCompetingGestures, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -17,14 +17,16 @@ import { runOnUI, scheduleOnRN } from 'react-native-worklets';
 import { haptic } from '@/lib/haptics';
 import { moveTask } from '@/store/actions';
 import type { Task } from '@/store/data';
-import { markHeld, setDragging } from '@/store/drag';
+import { closeSwipes, markHeld, setDragging } from '@/store/drag';
 import { usePeek } from '@/store/peek';
+import { SwipeFrame, useSwipeToDelete } from './SwipeToDelete';
 import { TaskRow } from './TaskRow';
 
 /*
  * A task list you can rearrange.
  *
  *   tap              → open the task
+ *   swipe left       → Delete (see SwipeToDelete)
  *   press and hold   → the row lifts
  *     · let go       → quick preview (blurred background, steps, actions)
  *     · drag         → move it; the others slide out of the way
@@ -205,6 +207,7 @@ const Item = memo(function Item({
   });
 
   const lifted = () => {
+    closeSwipes();
     setDragging(true);
     haptic.medium();
   };
@@ -315,8 +318,12 @@ const Item = memo(function Item({
     },
   });
 
+  // Hold (to drag or preview) and swipe (to delete) compete: whichever starts first wins.
+  const swipe = useSwipeToDelete(id);
+  const gesture = useCompetingGestures(pan, swipe.gesture);
+
   return (
-    <GestureDetector gesture={pan}>
+    <GestureDetector gesture={gesture}>
       <Animated.View
         entering={FadeIn.duration(220)}
         exiting={FadeOut.duration(160)}
@@ -326,9 +333,11 @@ const Item = memo(function Item({
           style,
         ]}
       >
-        <View ref={ref} collapsable={false}>
-          <TaskRow task={task} showDue={showDue} showGoal={showGoal} managed />
-        </View>
+        <SwipeFrame swipe={swipe}>
+          <View ref={ref} collapsable={false}>
+            <TaskRow task={task} showDue={showDue} showGoal={showGoal} managed />
+          </View>
+        </SwipeFrame>
       </Animated.View>
     </GestureDetector>
   );
