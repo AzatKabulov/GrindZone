@@ -53,10 +53,16 @@ Most productivity apps split the day across separate tools: one for to-dos, one 
     <td align="center"><img src="docs/screenshots/day-won.png" width="200" alt="Day won" /><br /><sub><b>Day won</b>: every task done</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/goals.png" width="200" alt="Goals" /><br /><sub><b>Goals</b>: progress from linked steps</sub></td>
+    <td align="center"><img src="docs/screenshots/goals.png" width="200" alt="Goals" /><br /><sub><b>Goals</b>: overall progress in steps</sub></td>
     <td align="center"><img src="docs/screenshots/profile.png" width="200" alt="Profile" /><br /><sub><b>Profile</b>: stats, 6-month map, theming</sub></td>
     <td align="center"><img src="docs/screenshots/today-light.png" width="200" alt="Light mode" /><br /><sub><b>Light mode</b></sub></td>
     <td align="center"><img src="docs/screenshots/sign-in.png" width="200" alt="Sign in" /><br /><sub><b>Sign in</b>, or continue offline</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/history.png" width="200" alt="Task history" /><br /><sub><b>History</b>: every day coloured by how much got done</sub></td>
+    <td align="center"><img src="docs/screenshots/habit-analytics.png" width="200" alt="Habit analytics" /><br /><sub><b>Habit analytics</b>: weekly trend and reports</sub></td>
+    <td align="center"><img src="docs/screenshots/goals-history.png" width="200" alt="Achieved goals" /><br /><sub><b>Achieved goals</b>: how long each one took</sub></td>
+    <td align="center"><img src="docs/screenshots/habits-light.png" width="200" alt="Habits in light mode" /><br /><sub><b>Habits</b>, light mode</sub></td>
   </tr>
 </table>
 
@@ -65,11 +71,13 @@ Most productivity apps split the day across separate tools: one for to-dos, one 
 | Area | What it does |
 |---|---|
 | **Today** | Your line for the day (tap to write your own, or get a new one each day), a progress ring, a streak counter, a **GitHub-style activity heatmap**, a "now / next" schedule card with a live progress bar, and today's tasks with quick add. |
-| **Tasks** | One list grouped into Overdue, Today, Upcoming and Someday. Each task can have an **emoji**, a **priority** shown as an emoji on the right (🔥 high · ⚡ medium · 💤 low), a due date, a linked goal, notes and a **checklist of steps**. **Swipe left** on a task to delete it (a long swipe deletes straight away; a toast lets you undo). |
+| **Tasks** | One list grouped into Overdue, Today, Upcoming and Someday, with **today's productivity** as a ring in the header. Each task can have an **emoji**, a **priority** shown as an emoji on the right (🔥 high · ⚡ medium · 💤 low), a due date, notes and a **checklist of steps**. **Swipe left** on a task to delete it (a long swipe deletes straight away; a toast lets you undo). |
+| **Task history** | A month calendar where every day is coloured by how much of that day's list got done (red → amber → light green → green) and shows done/total. Tap a day to see what you finished and what you missed. |
 | **Press and hold** | Hold a task and the row lifts. **Drag** to put it anywhere in the list (dated tasks stay within their day), or **let go** for a preview: the screen blurs and the card opens in the middle of the screen, where you can tick off or add steps, start a focus session, mark it done or delete it. |
-| **Plan** | A week strip and a 24-hour timeline. Tap an hour to create a time block, set **start and end to the exact minute** (native iOS wheel) or pick a preset length. Five colour-coded kinds (Work, Training, Learning, Rest, Personal), a live "now" line, and **copy yesterday's plan** for an empty day. |
+| **Plan** | A week strip and a 24-hour timeline. Tap an hour to create a time block, set **start and end to the exact minute** (native iOS wheel) or pick a preset length. Five colour-coded kinds (Work, Training, Learning, Rest, Personal), a live "now" line, and **copy yesterday's plan** for an empty day. **Hold a block** to edit, move it 30 minutes later, duplicate it to tomorrow or delete it without opening it. |
 | **Habits** | Daily habits with a one-tap check for today, the current week from Monday to Sunday (tap any past day to fix it), the current streak, and a history page per habit. |
-| **Goals** | A title, a "why", a deadline and steps (linked tasks). Progress is calculated from finished steps. Achieving a goal triggers a full-screen celebration. |
+| **Habit analytics** | This week's and the last 4 weeks' consistency with the change vs the period before, a **12-week trend chart** (tap a week for its report: every habit × every day), your strongest and weakest day of the week, and a bar per habit with its trend. |
+| **Goals** | A title, a "why", a deadline and its own **checklist of steps** (steps are not tasks). An overall ring counts progress in steps across all goals. Achieving a goal triggers a full-screen celebration, and the **trophy history** lists every achieved goal with how long it took and whether it beat the deadline. |
 | **Focus** | Pomodoro with 15 / 25 / 45 / 60-minute sessions and 5 / 10 / 15-minute breaks, plus pause, reset and skip. The timer survives the app being backgrounded or the phone being locked, and **local notifications** fire when a session or break ends. It can be linked to a task. |
 | **Notes** | A full-page notes list with pinning, autosave and search. |
 | **Profile** | Lifetime stats (tasks done, best streak, focus sessions, goals achieved), a 6-month activity map, System / Dark / Light theme, 5 accent colours, a haptics toggle and account management. |
@@ -120,9 +128,9 @@ flowchart LR
 
 | Table | Key columns |
 |---|---|
-| `tasks` | `title`, `notes`, `emoji`, `priority` (1–3), `due_date`, `goal_id`, `subtasks` (jsonb), `done`, `done_at`, `sort_order` |
+| `tasks` | `title`, `notes`, `emoji`, `priority` (1–3), `due_date`, `subtasks` (jsonb), `done`, `done_at`, `sort_order` |
 | `blocks` | `date`, `start_min`, `end_min` (minutes since midnight), `title`, `category`, `note` |
-| `goals` | `title`, `why`, `category`, `target_date`, `status`, `achieved_at` |
+| `goals` | `title`, `why`, `target_date`, `status`, `achieved_at`, `steps` (jsonb checklist) |
 | `habits` | `title`, `emoji`, `checks` (jsonb array of `YYYY-MM-DD` dates) |
 | `notes` | `title`, `body`, `pinned` |
 
@@ -134,7 +142,10 @@ Every table also has `id` (client-generated UUID), `user_id`, `created_at`, `upd
 - **Animations without dropped frames.** Checkbox pops, progress rings, the long-press preview and celebration overlays run on the UI thread with Reanimated 4. When you tick a task, the checkbox animates first and the store update follows about 380 ms later, so rows don't disappear mid-animation.
 - **Gestures that don't fight each other.** Hold (drag or preview) and swipe (delete) are composed as competing gestures, so whichever starts first wins; a horizontal swipe fails as soon as the finger moves vertically, so scrolling stays smooth.
 - **Drag to reorder without jank.** One long-press gesture (Gesture Handler 3 + Reanimated worklets on the UI thread) either opens the preview or starts a drag. Rows are positioned from a shared order and their measured heights, so the order shown while dragging is exactly the order that gets saved and rows never jump on drop. Moving a task usually writes a single row: it takes a `sort_order` between its new neighbours.
-- **Derived state, not duplicated state.** Streaks, the activity heatmap (tasks, blocks, notes, habits, focus sessions and goals per day), goal progress and the "now / next" block are pure selectors over the store, so nothing can drift out of sync.
+- **Derived state, not duplicated state.** Streaks, the activity heatmap, per-day task history, habit analytics (weekly rates, weekday breakdown, trends), goal progress and the "now / next" block are pure functions over the store, so nothing can drift out of sync.
+- **Charts that read clearly.** Single-series bar charts with thin rounded bars, recessive hairline grids and selective labels. The red → green productivity scale was checked with a colour-vision-deficiency validator, and every coloured day also shows done/total, so colour is never the only cue.
+- **Keyboard-safe forms.** Every form scrolls with native keyboard insets (`automaticallyAdjustKeyboardInsets`), which measure the real on-screen position, so the field you're typing in stays visible even inside slide-up sheets.
+- **Data migrations that sync.** When goal steps moved out of tasks into the goal itself, an idempotent migration (same ids) runs after every sync, so every device converges on the same result.
 - **Versioned on-device schema.** The persisted store has a `version` and a `migrate` step, so updates never wipe data already on the device.
 - **Over-the-air delivery.** `runtimeVersion` follows the SDK version, so every `eas update` reaches phones running Expo Go with no native build or App Store review.
 - **Backend keep-alive.** A scheduled GitHub Action pings Supabase twice a week so the free-tier project is never paused.
@@ -203,6 +214,9 @@ src/
 │   ├── habit/[id].tsx    # Habit history and editor
 │   ├── note/[id].tsx     # Note editor
 │   ├── focus.tsx         # Pomodoro timer
+│   ├── history.tsx       # Task history calendar
+│   ├── habits-stats.tsx  # Habit analytics
+│   ├── goals-history.tsx # Achieved goals
 │   ├── notes.tsx         # Notes list
 │   ├── settings.tsx      # Profile, stats, theme, account
 │   ├── sign-in.tsx       # Auth
@@ -214,6 +228,7 @@ src/
 │   ├── selectors.ts      # Streaks, activity, progress, schedule (pure functions)
 │   ├── actions.ts        # Domain actions + reward triggers
 │   ├── focus.ts          # Pomodoro state machine
+│   ├── habitStats.ts     # Habit analytics (weekly rates, weekday breakdown, trends)
 │   └── auth.ts, settings.ts, fx.ts, peek.ts, drag.ts
 ├── lib/                  # Dates, quotes, categories, haptics, notifications, Supabase client
 └── theme/                # Colour tokens (dark/light), accents, typography

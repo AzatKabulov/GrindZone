@@ -42,6 +42,14 @@ export interface Task extends Base {
   sort_order: number;
 }
 
+/** A step towards a goal. Steps live inside their goal and are not tasks. */
+export interface GoalStep {
+  id: string;
+  title: string;
+  done: boolean;
+  done_at?: string | null;
+}
+
 export interface Goal extends Base {
   title: string;
   why: string;
@@ -50,6 +58,7 @@ export interface Goal extends Base {
   status: 'active' | 'achieved' | 'archived';
   achieved_at: string | null;
   sort_order: number;
+  steps: GoalStep[];
 }
 
 export interface Block extends Base {
@@ -96,6 +105,7 @@ const FIELDS: { [K in TableName]: () => Fields<K> } = {
     status: 'active',
     achieved_at: null,
     sort_order: 0,
+    steps: [],
   }),
   tasks: () => ({
     title: '',
@@ -306,13 +316,16 @@ export const useData = create<DataState>()(
     }),
     {
       name: 'gz-data',
-      version: 2,
+      version: 3,
       // v2: tasks gained `emoji` and `subtasks`; habits table added.
+      // v3: goals gained `steps` (moving old goal-linked tasks into them happens in moveGoalTasksToSteps).
       migrate: (persisted) => {
         const st = (persisted ?? {}) as Partial<TablesState>;
         const tasks: Record<string, Task> = {};
         for (const [id, t] of Object.entries(st.tasks ?? {})) tasks[id] = { ...FIELDS.tasks(), ...t };
-        return { ...st, tasks, habits: st.habits ?? {} } as DataState;
+        const goals: Record<string, Goal> = {};
+        for (const [id, g] of Object.entries(st.goals ?? {})) goals[id] = { ...FIELDS.goals(), ...g, steps: g.steps ?? [] };
+        return { ...st, tasks, goals, habits: st.habits ?? {} } as DataState;
       },
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({

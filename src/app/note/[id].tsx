@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, TextInput, View, type TextInputInstance } from 'react-native';
+import { Alert, Platform, ScrollView, TextInput, View, type TextInputInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconBtn, Txt } from '@/components/ui';
@@ -83,7 +83,7 @@ export default function NoteEditor() {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: c.bgElevated }}>
+    <View style={{ flex: 1, backgroundColor: c.bgElevated }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
         <IconBtn icon="chevron-down" size={36} onPress={close} />
         <View style={{ flex: 1, alignItems: 'center' }}>
@@ -101,9 +101,10 @@ export default function NoteEditor() {
         <IconBtn icon="trash-outline" size={36} onPress={del} />
       </View>
       <ScrollView
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="interactive"
         contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 12, paddingBottom: insets.bottom + 60 }}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
       >
         <TextInput
           value={title}
@@ -136,6 +137,6 @@ export default function NoteEditor() {
           {words} WORDS
         </Txt>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }

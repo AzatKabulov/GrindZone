@@ -33,6 +33,8 @@ export default function NotesScreen() {
   return (
     <Screen>
       <ScrollView
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="interactive"
         contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}

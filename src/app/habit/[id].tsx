@@ -1,12 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { EmojiPicker } from '@/components/EmojiPicker';
+import { EmojiButton } from '@/components/EmojiPicker';
 import { FxHost } from '@/components/FxHost';
 import { Heatmap } from '@/components/Heatmap';
-import { FieldLabel, SheetHeader } from '@/components/pickers';
+import { SheetHeader } from '@/components/pickers';
 import { Button, Card, Txt } from '@/components/ui';
 import { todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
@@ -64,11 +64,13 @@ export default function HabitScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bgElevated }}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
         <SheetHeader kicker={isNew ? 'NEW' : 'HABIT'} title={isNew ? 'NEW HABIT' : 'HABIT'} onClose={close} />
-        <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 24 }} keyboardShouldPersistTaps="handled">
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            {emoji ? <Text style={{ fontSize: 32 }}>{emoji}</Text> : null}
+        <ScrollView
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="interactive" contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 24 }} keyboardShouldPersistTaps="handled">
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <EmojiButton value={emoji} onChange={setEmoji} />
             <TextInput
               value={title}
               onChangeText={setTitle}
@@ -94,15 +96,10 @@ export default function HabitScreen() {
             </Card>
           ) : null}
 
-          <View>
-            <FieldLabel>EMOJI</FieldLabel>
-            <EmojiPicker value={emoji} onChange={setEmoji} />
-          </View>
-
           {isNew || dirty ? <Button label={isNew ? 'ADD HABIT' : 'SAVE'} icon={isNew ? 'add' : 'checkmark'} onPress={save} disabled={!title.trim()} /> : null}
           {habit ? <Button label="DELETE HABIT" icon="trash-outline" variant="danger" onPress={del} /> : null}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
       <FxHost />
     </View>
   );

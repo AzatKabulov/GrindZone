@@ -1,30 +1,32 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { DoneToggle, QuickAdd } from '@/components/ListBits';
 import { ReorderableTasks } from '@/components/ReorderableTasks';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { TaskRow } from '@/components/TaskRow';
+import { StatRing } from '@/components/StatRing';
 import { IconBtn, Screen, ScreenTitle, Section, TAB_BAR_SPACE, Txt } from '@/components/ui';
-import { todayKey } from '@/lib/date';
+import { isoToKey, todayKey } from '@/lib/date';
+import { productivityColor } from '@/lib/productivity';
 import { useData, type Task } from '@/store/data';
 import { closeSwipes, useDrag } from '@/store/drag';
-import { alive, sortTasks, sortTasksByDue } from '@/store/selectors';
+import { alive, sortTasks, sortTasksByDue, tasksForDay } from '@/store/selectors';
 import { useTheme } from '@/theme';
 
 const byDay = (t: Task) => t.due_date ?? '';
 
 /** Every open task in one list: Overdue → Today → Upcoming → Someday. Finished ones stay tucked away. */
 export default function TasksScreen() {
-  const { c } = useTheme();
+  const { c, isDark } = useTheme();
   const tasks = useData((s) => s.tasks);
   const create = useData((s) => s.create);
   const [showDone, setShowDone] = useState(false);
   const dragging = useDrag((s) => s.dragging);
   const today = todayKey();
 
-  const { sections, done, openCount } = useMemo(() => {
+  const { sections, done, todayRatio } = useMemo(() => {
     const list = alive(tasks);
     const open = list.filter((t) => !t.done);
     // Dated sections keep their days in order; you can rearrange tasks within the same day.
@@ -34,17 +36,22 @@ export default function TasksScreen() {
       { title: 'UPCOMING', items: open.filter((t) => t.due_date && t.due_date > today).sort(sortTasksByDue), showDue: true, byDay: true },
       { title: 'SOMEDAY', items: open.filter((t) => !t.due_date).sort(sortTasks), showDue: false, byDay: false },
     ];
+    // Finished today; earlier days live in the history calendar.
     const done = list
-      .filter((t) => t.done)
-      .sort((a, b) => ((a.done_at ?? '') < (b.done_at ?? '') ? 1 : -1))
-      .slice(0, 50);
-    return { sections: sections.filter((s) => s.items.length), done, openCount: open.length };
+      .filter((t) => t.done && isoToKey(t.done_at) === today)
+      .sort((a, b) => ((a.done_at ?? '') < (b.done_at ?? '') ? 1 : -1));
+    // Today's productivity: share of today's list (incl. overdue) that's done.
+    const day = tasksForDay(tasks, today);
+    const total = day.open.length + day.done.length;
+    return { sections: sections.filter((s) => s.items.length), done, todayRatio: total ? day.done.length / total : null };
   }, [tasks, today]);
 
   return (
     <Screen>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
         <ScrollView
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="interactive"
           contentContainerStyle={{ padding: 20, paddingBottom: TAB_BAR_SPACE }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -52,9 +59,14 @@ export default function TasksScreen() {
           onScrollBeginDrag={closeSwipes}
         >
           <ScreenTitle
-            kicker={openCount ? `${openCount} OPEN` : 'ALL CLEAR'}
             title="TASKS"
-            right={<IconBtn icon="add" accentFill onPress={() => router.push({ pathname: '/task/[id]', params: { id: 'new', due: today } })} />}
+            middle={<StatRing value={todayRatio} label="TODAY" color={todayRatio === null ? undefined : productivityColor(todayRatio, isDark)} />}
+            right={
+              <>
+                <IconBtn icon="calendar-outline" onPress={() => router.push('/history')} />
+                <IconBtn icon="add" accentFill onPress={() => router.push({ pathname: '/task/[id]', params: { id: 'new', due: today } })} />
+              </>
+            }
           />
 
           <QuickAdd placeholder="Add a task for today…" onAdd={(title) => create('tasks', { title, due_date: today })} />
@@ -73,7 +85,7 @@ export default function TasksScreen() {
           ))}
 
           <View style={{ marginTop: 18 }}>
-            <DoneToggle count={done.length} open={showDone} onToggle={() => setShowDone((v) => !v)} label="COMPLETED" />
+            <DoneToggle count={done.length} open={showDone} onToggle={() => setShowDone((v) => !v)} label="DONE TODAY" />
           </View>
           {showDone ? (
             <View style={{ gap: 8 }}>
@@ -85,7 +97,7 @@ export default function TasksScreen() {
             </View>
           ) : null}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     </Screen>
   );
 }

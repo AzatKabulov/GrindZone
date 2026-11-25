@@ -2,6 +2,7 @@ import { AppState } from 'react-native';
 import { create } from 'zustand';
 
 import { supabase } from '@/lib/supabase';
+import { moveGoalTasksToSteps } from './actions';
 import { currentUserId, useAuth } from './auth';
 import { TABLES, useData, type TableName } from './data';
 import { useSettings } from './settings';
@@ -40,6 +41,7 @@ export async function syncNow(): Promise<void> {
   try {
     await push(userId);
     await pull();
+    moveGoalTasksToSteps();
     useSync.setState({ status: 'idle', lastSyncedAt: new Date().toISOString() });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -118,6 +120,7 @@ let started = false;
 export function startSync() {
   if (started) return;
   started = true;
+  moveGoalTasksToSteps();
   useAuth.subscribe((s, prev) => {
     if (s.session?.user.id !== prev.session?.user.id) bindOwner();
   });

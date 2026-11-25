@@ -15,6 +15,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { FocusEngine } from '@/components/FocusEngine';
 import { FxHost } from '@/components/FxHost';
+import { MenuHost } from '@/components/MenuHost';
 import { PeekHost } from '@/components/TaskPeek';
 import { startAuth, useAuth } from '@/store/auth';
 import { useData } from '@/store/data';
@@ -92,6 +93,9 @@ export default function RootLayout() {
             <Stack.Screen name="settings" options={sheet} />
             <Stack.Screen name="habit/[id]" options={sheet} />
             <Stack.Screen name="focus" options={sheet} />
+            <Stack.Screen name="history" options={sheet} />
+            <Stack.Screen name="goals-history" options={sheet} />
+            <Stack.Screen name="habits-stats" options={sheet} />
             <Stack.Screen name="notes" />
           </Stack.Protected>
           <Stack.Protected guard={!signedIn}>
@@ -100,6 +104,7 @@ export default function RootLayout() {
         </Stack>
         <FocusEngine />
         <PeekHost />
+        <MenuHost />
         <FxHost />
       </ThemeProvider>
     </GestureHandlerRootView>

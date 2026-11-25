@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
-import { useEffect } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PRIORITIES } from '@/lib/categories';
 import { niceLabel } from '@/lib/date';
+import { useKeyboardHeight } from '@/lib/useKeyboardHeight';
 import { haptic } from '@/lib/haptics';
 import { addSubtask, removeSubtask, toggleSubtask, toggleTask } from '@/store/actions';
 import { useData } from '@/store/data';
@@ -29,10 +30,17 @@ export function PeekHost() {
 function Peek({ taskId, origin }: { taskId: string; origin: Rect | null }) {
   const { c, accent, isDark } = useTheme();
   const task = useData((s) => s.tasks[taskId]);
-  const goal = useData((s) => (task?.goal_id ? s.goals[task.goal_id] : undefined));
   const close = usePeek((s) => s.close);
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  // Typing a new step: lift the card above the keyboard and tuck the actions away.
+  const kb = useKeyboardHeight();
+  const scroller = useRef<ScrollViewInstance>(null);
+  useEffect(() => {
+    if (!kb) return;
+    const t = setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 80);
+    return () => clearTimeout(t);
+  }, [kb]);
 
   const cardW = width - 32;
   const top = insets.top + 16;
@@ -73,7 +81,6 @@ function Peek({ taskId, origin }: { taskId: string; origin: Rect | null }) {
   const meta: string[] = [];
   meta.push(`${PRIORITIES[task.priority].emoji} ${PRIORITIES[task.priority].label}`);
   if (task.due_date) meta.push(niceLabel(task.due_date).toUpperCase());
-  if (goal && !goal.deleted) meta.push(goal.title.toUpperCase());
 
   const actions: { icon: IconName; label: string; danger?: boolean; onPress: () => void }[] = [
     { icon: 'create-outline', label: 'Edit', onPress: () => dismiss(() => router.push(`/task/${task.id}`)) },
@@ -117,9 +124,12 @@ function Peek({ taskId, origin }: { taskId: string; origin: Rect | null }) {
         <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.45)' : 'rgba(241,238,231,0.45)' }]} onPress={() => dismiss()} />
       </Animated.View>
 
-      <View pointerEvents="box-none" style={{ position: 'absolute', top, left: 16, right: 16, bottom: insets.bottom + 16, justifyContent: 'center' }}>
+      <View
+        pointerEvents="box-none"
+        style={{ position: 'absolute', top, left: 16, right: 16, bottom: kb ? kb + 12 : insets.bottom + 16, justifyContent: kb ? 'flex-end' : 'center' }}
+      >
         <Animated.View
-          style={[{ maxHeight: height * 0.62 }, card]}
+          style={[{ maxHeight: kb ? height - kb - top - 24 : height * 0.62 }, card]}
           onLayout={(e) => cardCenter.set(top + e.nativeEvent.layout.y + e.nativeEvent.layout.height / 2)}
         >
           <View
@@ -135,7 +145,7 @@ function Peek({ taskId, origin }: { taskId: string; origin: Rect | null }) {
               overflow: 'hidden',
             }}
           >
-            <ScrollView contentContainerStyle={{ padding: 20, gap: 14 }} keyboardShouldPersistTaps="handled">
+            <ScrollView ref={scroller} contentContainerStyle={{ padding: 20, gap: 14 }} keyboardShouldPersistTaps="handled">
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
                 {task.emoji ? <Text style={{ fontSize: 40, lineHeight: 46 }}>{task.emoji}</Text> : null}
                 <View style={{ flex: 1, gap: 6 }}>
@@ -173,6 +183,7 @@ function Peek({ taskId, origin }: { taskId: string; origin: Rect | null }) {
         <Animated.View
           style={[
             {
+              display: kb ? 'none' : 'flex',
               marginTop: 12,
               width: 250,
               borderRadius: 16,

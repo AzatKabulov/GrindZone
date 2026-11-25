@@ -14,6 +14,8 @@ interface SettingsState {
   guest: boolean;
   /** Your own headline for Today; empty = rotating daily quotes. */
   customMantra: string;
+  /** Font size of the Today headline. */
+  mantraSize: number;
   hydrated: boolean;
   set: (patch: Partial<Omit<SettingsState, 'set' | 'hydrated'>>) => void;
 }
@@ -27,6 +29,7 @@ export const useSettings = create<SettingsState>()(
       name: '',
       guest: false,
       customMantra: '',
+      mantraSize: 48,
       hydrated: false,
       set: (patch) => set(patch),
     }),

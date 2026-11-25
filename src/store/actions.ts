@@ -1,6 +1,6 @@
 import { nowIso, todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
-import { uuid, useData, type Block, type Subtask, type Task } from './data';
+import { uuid, useData, type Block, type GoalStep, type Subtask, type Task } from './data';
 import { useFx } from './fx';
 import { blocksForDay, tasksForDay } from './selectors';
 
@@ -153,4 +153,101 @@ export function deleteTask(id: string) {
     restore('tasks', id);
     haptic.light();
   });
+}
+
+/* ───────────────────────────── Goal steps ───────────────────────────── */
+
+function setGoalSteps(goalId: string, fn: (list: GoalStep[]) => GoalStep[]) {
+  const s = useData.getState();
+  const g = s.goals[goalId];
+  if (!g) return;
+  s.patch('goals', goalId, { steps: fn(g.steps ?? []) });
+}
+
+export function addGoalStep(goalId: string, title: string) {
+  const text = title.trim();
+  if (!text) return;
+  setGoalSteps(goalId, (l) => [...l, { id: uuid(), title: text, done: false, done_at: null }]);
+  haptic.light();
+}
+
+export function toggleGoalStep(goalId: string, stepId: string) {
+  let nowDone = false;
+  setGoalSteps(goalId, (l) =>
+    l.map((x) => {
+      if (x.id !== stepId) return x;
+      nowDone = !x.done;
+      return { ...x, done: nowDone, done_at: nowDone ? nowIso() : null };
+    }),
+  );
+  if (nowDone) {
+    haptic.success();
+    useFx.getState().cheer('STEP DONE');
+  } else haptic.light();
+}
+
+export function removeGoalStep(goalId: string, stepId: string) {
+  setGoalSteps(goalId, (l) => l.filter((x) => x.id !== stepId));
+  haptic.light();
+}
+
+/**
+ * Older versions stored goal steps as tasks linked to the goal (no date, shown under "Someday").
+ * Move those into the goal itself (same ids, so running this again — or on another device — changes
+ * nothing). A linked task that has a date was planned for a day, so it stays a task and is just unlinked.
+ * Tasks linked to a deleted goal also just get unlinked.
+ */
+export function moveGoalTasksToSteps() {
+  const s = useData.getState();
+  const byGoal: Record<string, Task[]> = {};
+  for (const t of Object.values(s.tasks)) if (!t.deleted && t.goal_id) (byGoal[t.goal_id] ??= []).push(t);
+  for (const [goalId, list] of Object.entries(byGoal)) {
+    const g = useData.getState().goals[goalId];
+    if (!g) continue; // goal not here yet (still syncing): try again next time
+    const steps = g.deleted ? [] : list.filter((t) => !t.due_date);
+    for (const t of list) if (!steps.includes(t)) s.patch('tasks', t.id, { goal_id: null });
+    if (!steps.length) continue;
+    const have = new Set((g.steps ?? []).map((x) => x.id));
+    const add = steps
+      .filter((t) => !have.has(t.id))
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((t) => ({ id: t.id, title: t.title, done: t.done, done_at: t.done_at }));
+    if (add.length) s.patch('goals', goalId, { steps: [...(g.steps ?? []), ...add] });
+    for (const t of steps) s.remove('tasks', t.id);
+  }
+}
+
+/* ───────────────────────────── Time blocks ───────────────────────────── */
+
+/** Delete a time block, with a toast you can tap to undo. */
+export function deleteBlock(id: string) {
+  const { blocks, remove, restore } = useData.getState();
+  const b = blocks[id];
+  if (!b) return;
+  remove('blocks', id);
+  haptic.warning();
+  useFx.getState().info('BLOCK DELETED · TAP TO UNDO', b.title || 'Time block', () => {
+    restore('blocks', id);
+    haptic.light();
+  });
+}
+
+/** Same block, another day. */
+export function duplicateBlock(id: string, toDate: string) {
+  const s = useData.getState();
+  const b = s.blocks[id];
+  if (!b) return;
+  s.create('blocks', { date: toDate, start_min: b.start_min, end_min: b.end_min, title: b.title, category: b.category, note: b.note });
+  haptic.success();
+}
+
+/** Push a block later (or earlier with a negative number), keeping its length, within the day. */
+export function shiftBlock(id: string, minutes: number) {
+  const s = useData.getState();
+  const b = s.blocks[id];
+  if (!b) return;
+  const len = b.end_min - b.start_min;
+  const start = Math.max(0, Math.min(1440 - len, b.start_min + minutes));
+  s.patch('blocks', id, { start_min: start, end_min: start + len });
+  haptic.light();
 }

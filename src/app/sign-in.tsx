@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -86,8 +86,10 @@ export default function SignInScreen() {
         locations={[0, 0.35, 0.7]}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 520 }}
       />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
         <ScrollView
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="interactive"
           contentContainerStyle={{ flexGrow: 1, padding: 24, paddingTop: insets.top + 36, paddingBottom: insets.bottom + 24 }}
           keyboardShouldPersistTaps="handled"
         >
@@ -227,7 +229,7 @@ export default function SignInScreen() {
             ACCOUNT = CLOUD BACKUP + ACCESS FROM ANY DEVICE
           </Txt>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 }

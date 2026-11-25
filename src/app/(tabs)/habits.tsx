@@ -3,10 +3,12 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
+import { StatRing } from '@/components/StatRing';
 import { Empty, IconBtn, Press, Screen, ScreenTitle, TAB_BAR_SPACE, Txt } from '@/components/ui';
 import { addDays, startOfWeek, todayKey, weekdayShort } from '@/lib/date';
 import { toggleHabit } from '@/store/actions';
 import { useData, type Habit } from '@/store/data';
+import { habitRate } from '@/store/habitStats';
 import { alive, habitStreak } from '@/store/selectors';
 import { alpha, useTheme } from '@/theme';
 
@@ -16,6 +18,14 @@ export default function HabitsScreen() {
   const today = todayKey();
   const list = [...alive(habits)].sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
   const doneToday = list.filter((h) => (h.checks ?? []).includes(today)).length;
+  const monday = startOfWeek(today);
+  let wDone = 0;
+  let wPossible = 0;
+  for (const h of list) {
+    const r = habitRate(h, monday, addDays(monday, 6), today);
+    wDone += r.done;
+    wPossible += r.possible;
+  }
   const add = () => router.push({ pathname: '/habit/[id]', params: { id: 'new' } });
 
   return (
@@ -24,7 +34,13 @@ export default function HabitsScreen() {
         <ScreenTitle
           kicker={list.length ? `${doneToday}/${list.length} DONE TODAY` : undefined}
           title="HABITS"
-          right={<IconBtn icon="add" accentFill onPress={add} />}
+          middle={list.length ? <StatRing value={wPossible ? wDone / wPossible : null} label="THIS WEEK" /> : undefined}
+          right={
+            <>
+              <IconBtn icon="stats-chart-outline" onPress={() => router.push('/habits-stats')} />
+              <IconBtn icon="add" accentFill onPress={add} />
+            </>
+          }
         />
         {list.length === 0 ? (
           <Empty
