@@ -96,6 +96,7 @@ export default function RootLayout() {
             <Stack.Screen name="history" options={sheet} />
             <Stack.Screen name="goals-history" options={sheet} />
             <Stack.Screen name="habits-stats" options={sheet} />
+            <Stack.Screen name="wrap" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
             <Stack.Screen name="notes" />
           </Stack.Protected>
           <Stack.Protected guard={!signedIn}>

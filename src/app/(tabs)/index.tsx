@@ -82,6 +82,7 @@ export default function TodayScreen() {
             <Txt variant="label" color={c.text} style={{ flex: 1 }}>
               {weekday(today)} · {dayNum(today)} {monthShort(today)}
             </Txt>
+            <IconBtn icon="sparkles-outline" size={36} onPress={() => router.push('/wrap')} />
             <IconBtn icon="timer-outline" size={36} onPress={() => router.push('/focus')} />
             <IconBtn icon="reader-outline" size={36} onPress={() => router.push('/notes')} />
             <View>

@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { ScrollView, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import { StatRing } from '@/components/StatRing';
+import { HeaderBar } from '@/components/HeaderBar';
 import { Empty, IconBtn, Press, ProgressBar, Screen, ScreenTitle, TAB_BAR_SPACE, Txt } from '@/components/ui';
 import { diffDays, isoToKey, relativeLabel, todayKey } from '@/lib/date';
 import { useData, type Goal } from '@/store/data';
@@ -13,7 +13,6 @@ import { alpha, useTheme } from '@/theme';
 
 /** Goals you're working on. Achieved ones live in the history (trophy button). */
 export default function GoalsScreen() {
-  const { c } = useTheme();
   const goals = useData((s) => s.goals);
   const newGoal = () => router.push({ pathname: '/goal/[id]', params: { id: 'new' } });
 
@@ -32,7 +31,6 @@ export default function GoalsScreen() {
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: TAB_BAR_SPACE }} showsVerticalScrollIndicator={false}>
         <ScreenTitle
           title="GOALS"
-          middle={<StatRing value={overall.total ? overall.progress : null} label="OVERALL" />}
           right={
             <>
               <IconBtn icon="trophy-outline" onPress={() => router.push('/goals-history')} />
@@ -41,10 +39,11 @@ export default function GoalsScreen() {
           }
         />
         {overall.total ? (
-          <Txt variant="small" color={c.textDim} style={{ marginTop: -6, marginBottom: 16 }}>
-            {overall.doneUnits} of {overall.units} steps done across {overall.total} {overall.total === 1 ? 'goal' : 'goals'}
-            {overall.achieved ? ` · ${overall.achieved} achieved` : ''}
-          </Txt>
+          <HeaderBar
+            label="OVERALL"
+            value={overall.progress}
+            detail={`${overall.doneUnits} of ${overall.units} steps${overall.achieved ? ` · ${overall.achieved} achieved` : ''}`}
+          />
         ) : null}
 
         {active.length === 0 ? (
