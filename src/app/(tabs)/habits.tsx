@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import { StatRing } from '@/components/StatRing';
+import { HeaderBar } from '@/components/HeaderBar';
 import { Empty, IconBtn, Press, Screen, ScreenTitle, TAB_BAR_SPACE, Txt } from '@/components/ui';
 import { addDays, startOfWeek, todayKey, weekdayShort } from '@/lib/date';
 import { toggleHabit } from '@/store/actions';
@@ -34,7 +34,6 @@ export default function HabitsScreen() {
         <ScreenTitle
           kicker={list.length ? `${doneToday}/${list.length} DONE TODAY` : undefined}
           title="HABITS"
-          middle={list.length ? <StatRing value={wPossible ? wDone / wPossible : null} label="THIS WEEK" /> : undefined}
           right={
             <>
               <IconBtn icon="stats-chart-outline" onPress={() => router.push('/habits-stats')} />
@@ -42,6 +41,9 @@ export default function HabitsScreen() {
             </>
           }
         />
+        {list.length ? (
+          <HeaderBar label="THIS WEEK" value={wPossible ? wDone / wPossible : null} detail={wPossible ? `${wDone} of ${wPossible} habit-days` : 'Check off a habit to start'} />
+        ) : null}
         {list.length === 0 ? (
           <Empty
             icon="repeat"

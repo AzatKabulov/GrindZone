@@ -6,10 +6,9 @@ import { DoneToggle, QuickAdd } from '@/components/ListBits';
 import { ReorderableTasks } from '@/components/ReorderableTasks';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { TaskRow } from '@/components/TaskRow';
-import { StatRing } from '@/components/StatRing';
+import { HeaderBar } from '@/components/HeaderBar';
 import { IconBtn, Screen, ScreenTitle, Section, TAB_BAR_SPACE, Txt } from '@/components/ui';
 import { isoToKey, todayKey } from '@/lib/date';
-import { productivityColor } from '@/lib/productivity';
 import { useData, type Task } from '@/store/data';
 import { closeSwipes, useDrag } from '@/store/drag';
 import { alive, sortTasks, sortTasksByDue, tasksForDay } from '@/store/selectors';
@@ -19,14 +18,14 @@ const byDay = (t: Task) => t.due_date ?? '';
 
 /** Every open task in one list: Overdue → Today → Upcoming → Someday. Finished ones stay tucked away. */
 export default function TasksScreen() {
-  const { c, isDark } = useTheme();
+  const { c } = useTheme();
   const tasks = useData((s) => s.tasks);
   const create = useData((s) => s.create);
   const [showDone, setShowDone] = useState(false);
   const dragging = useDrag((s) => s.dragging);
   const today = todayKey();
 
-  const { sections, done, todayRatio } = useMemo(() => {
+  const { sections, done, todayRatio, todayDone, todayTotal } = useMemo(() => {
     const list = alive(tasks);
     const open = list.filter((t) => !t.done);
     // Dated sections keep their days in order; you can rearrange tasks within the same day.
@@ -43,7 +42,13 @@ export default function TasksScreen() {
     // Today's productivity: share of today's list (incl. overdue) that's done.
     const day = tasksForDay(tasks, today);
     const total = day.open.length + day.done.length;
-    return { sections: sections.filter((s) => s.items.length), done, todayRatio: total ? day.done.length / total : null };
+    return {
+      sections: sections.filter((s) => s.items.length),
+      done,
+      todayRatio: total ? day.done.length / total : null,
+      todayDone: day.done.length,
+      todayTotal: total,
+    };
   }, [tasks, today]);
 
   return (
@@ -60,7 +65,6 @@ export default function TasksScreen() {
         >
           <ScreenTitle
             title="TASKS"
-            middle={<StatRing value={todayRatio} label="TODAY" color={todayRatio === null ? undefined : productivityColor(todayRatio, isDark)} />}
             right={
               <>
                 <IconBtn icon="calendar-outline" onPress={() => router.push('/history')} />
@@ -68,6 +72,8 @@ export default function TasksScreen() {
               </>
             }
           />
+
+          <HeaderBar label="TODAY" value={todayRatio} detail={todayTotal ? `${todayDone} of ${todayTotal} done` : 'No tasks for today yet'} />
 
           <QuickAdd placeholder="Add a task for today…" onAdd={(title) => create('tasks', { title, due_date: today })} />
 
