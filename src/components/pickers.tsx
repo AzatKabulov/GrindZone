@@ -30,7 +30,7 @@ export function DatePicker({
   ];
   if (allowNone) quick.push({ label: noneLabel, v: null });
   const isQuick = quick.some((q) => q.v === value);
-  const [open, setOpen] = useState(!isQuick && !!value);
+  const [open, setOpen] = useState(false);
 
   return (
     <View style={{ gap: 12 }}>
@@ -160,12 +160,15 @@ export function TimeStepper({
 }) {
   const { c } = useTheme();
   const valRef = useRef(value);
-  valRef.current = value;
+  useEffect(() => {
+    valRef.current = value;
+  }, [value]);
   const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const bump = (dir: number) => {
     const next = Math.max(min, Math.min(max, valRef.current + dir * step));
     if (next !== valRef.current) {
+      valRef.current = next;
       haptic.tap();
       onChange(next);
     }

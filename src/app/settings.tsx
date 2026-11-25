@@ -91,7 +91,7 @@ export default function SettingsScreen() {
                 {(settings.name || 'SOLDIER').toUpperCase()}
               </Txt>
               <Txt variant="label" numberOfLines={1} style={{ marginTop: 2 }}>
-                {session?.user.email ?? 'OFFLINE MODE · THIS DEVICE ONLY'}
+                {session?.user.email ?? 'OFFLINE MODE'}
               </Txt>
             </View>
           </View>
@@ -260,7 +260,7 @@ export default function SettingsScreen() {
             </Card>
           ) : (
             <Card style={{ gap: 12, borderColor: alpha(accent, 0.4) }}>
-              <Txt variant="title">You're in offline mode</Txt>
+              <Txt variant="title">{"You're in offline mode"}</Txt>
               <Txt variant="small" color={c.textDim}>
                 Data lives only on this phone. Create an account to back everything up and get it on any device — your
                 current data comes with you.
@@ -285,7 +285,7 @@ function StatTile({ label, value, icon }: { label: string; value: number | strin
   return (
     <View
       style={{
-        width: '31.5%',
+        width: '48%',
         flexGrow: 1,
         padding: 12,
         borderRadius: 14,

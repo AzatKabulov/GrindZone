@@ -97,7 +97,7 @@ export default function PlanScreen() {
   return (
     <Screen>
       <View style={{ paddingHorizontal: 20 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', paddingTop: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', paddingTop: 30 }}>
           <View style={{ flex: 1 }}>
             {isToday ? (
               <Txt variant="label">

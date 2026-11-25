@@ -133,9 +133,16 @@ function GoalCard({ goal, progress }: { goal: Goal; progress: { done: number; to
         </Txt>
       ) : null}
       <ProgressBar value={progress.progress} style={{ marginTop: 16 }} />
-      <Txt variant="label" style={{ marginTop: 8 }}>
-        {progress.total ? `${progress.done}/${progress.total} MISSIONS COMPLETE` : 'NO MISSIONS LINKED YET'}
-      </Txt>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+        <Txt variant="label" style={{ flex: 1 }}>
+          {progress.total ? `${progress.done}/${progress.total} MISSIONS COMPLETE` : 'NO MISSIONS LINKED YET'}
+        </Txt>
+        {!achieved && progress.total > 0 && progress.done === progress.total ? (
+          <Txt variant="label" color={accent}>
+            READY TO CRUSH →
+          </Txt>
+        ) : null}
+      </View>
     </Press>
   );
 }

@@ -98,11 +98,11 @@ export function Press({
     <APressable
       {...rest}
       onPressIn={(e) => {
-        s.value = withTiming(scaleTo, { duration: 90 });
+        s.set(withTiming(scaleTo, { duration: 90 }));
         rest.onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        s.value = withSpring(1, { damping: 14, stiffness: 320 });
+        s.set(withSpring(1, { damping: 14, stiffness: 320 }));
         rest.onPressOut?.(e);
       }}
       onPress={(e) => {

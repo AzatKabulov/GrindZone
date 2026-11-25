@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { memo, useEffect, useState } from 'react';
+import { memo, useState } from 'react';
 import { View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
@@ -33,13 +33,14 @@ export const TaskRow = memo(function TaskRow({
   const pColor = task.priority === 1 ? accent : task.priority === 2 ? c.textDim : c.textFaint;
 
   // Optimistic check: animate instantly, commit after the pop so the row doesn't vanish mid-animation.
-  const [pending, setPending] = useState<boolean | null>(null);
-  useEffect(() => setPending(null), [task.done]);
-  const checked = pending ?? task.done;
+  // `pending.from` = the done-state we toggled away from; once the store catches up it no longer matches.
+  const [pending, setPending] = useState<{ from: boolean } | null>(null);
+  const inFlight = !!pending && pending.from === task.done;
+  const checked = inFlight ? !task.done : task.done;
   const onToggle = () => {
-    if (pending !== null) return;
+    if (inFlight) return;
     haptic.light();
-    setPending(!task.done);
+    setPending({ from: task.done });
     setTimeout(() => toggleTask(task.id), 380);
   };
 

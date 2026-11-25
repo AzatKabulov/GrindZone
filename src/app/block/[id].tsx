@@ -100,7 +100,7 @@ export default function BlockEditor() {
             placeholderTextColor={c.textFaint}
             selectionColor={accent}
             autoFocus={isNew}
-            style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 24, color: c.text, paddingVertical: 6 }}
+            style={{ flex: 1, minWidth: 0, fontFamily: fonts.semibold, fontSize: 24, color: c.text, paddingVertical: 6 }}
           />
         </View>
 
