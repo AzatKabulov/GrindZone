@@ -72,7 +72,9 @@ export default function SettingsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bgElevated }}>
       <SheetHeader kicker="SETTINGS" title="PROFILE" onClose={close} />
-      <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 26 }}>
+      <ScrollView
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="interactive" contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 26 }}>
         {/* Profile */}
         <Card style={{ padding: 18 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>

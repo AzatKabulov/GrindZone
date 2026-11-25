@@ -1,30 +1,29 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { ScrollView, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import { DoneToggle } from '@/components/ListBits';
+import { StatRing } from '@/components/StatRing';
 import { Empty, IconBtn, Press, ProgressBar, Screen, ScreenTitle, TAB_BAR_SPACE, Txt } from '@/components/ui';
 import { diffDays, isoToKey, relativeLabel, todayKey } from '@/lib/date';
 import { useData, type Goal } from '@/store/data';
-import { alive, goalProgress } from '@/store/selectors';
+import { alive, goalProgress, goalsProgress } from '@/store/selectors';
 import { alpha, useTheme } from '@/theme';
 
-/** Goals you're working on. Achieved ones are tucked away at the bottom. */
+/** Goals you're working on. Achieved ones live in the history (trophy button). */
 export default function GoalsScreen() {
+  const { c } = useTheme();
   const goals = useData((s) => s.goals);
-  const tasks = useData((s) => s.tasks);
-  const [showAchieved, setShowAchieved] = useState(false);
   const newGoal = () => router.push({ pathname: '/goal/[id]', params: { id: 'new' } });
 
-  const { active, achieved } = useMemo(() => {
+  const { active, overall } = useMemo(() => {
     const list = alive(goals);
     return {
       active: list
         .filter((g) => g.status === 'active')
         .sort((a, b) => (a.target_date ?? '9999').localeCompare(b.target_date ?? '9999') || a.created_at.localeCompare(b.created_at)),
-      achieved: list.filter((g) => g.status === 'achieved').sort((a, b) => (b.achieved_at ?? '').localeCompare(a.achieved_at ?? '')),
+      overall: goalsProgress(goals),
     };
   }, [goals]);
 
@@ -32,33 +31,39 @@ export default function GoalsScreen() {
     <Screen>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: TAB_BAR_SPACE }} showsVerticalScrollIndicator={false}>
         <ScreenTitle
-          kicker={active.length ? `${active.length} IN PROGRESS` : undefined}
           title="GOALS"
-          right={<IconBtn icon="add" accentFill onPress={newGoal} />}
+          middle={<StatRing value={overall.total ? overall.progress : null} label="OVERALL" />}
+          right={
+            <>
+              <IconBtn icon="trophy-outline" onPress={() => router.push('/goals-history')} />
+              <IconBtn icon="add" accentFill onPress={newGoal} />
+            </>
+          }
         />
+        {overall.total ? (
+          <Txt variant="small" color={c.textDim} style={{ marginTop: -6, marginBottom: 16 }}>
+            {overall.doneUnits} of {overall.units} steps done across {overall.total} {overall.total === 1 ? 'goal' : 'goals'}
+            {overall.achieved ? ` · ${overall.achieved} achieved` : ''}
+          </Txt>
+        ) : null}
 
         {active.length === 0 ? (
-          <Empty icon="locate-outline" title="NO GOALS YET" text="Pick one thing you want to achieve. Then break it into small steps." action="ADD A GOAL" onAction={newGoal} />
+          <Empty
+            icon="locate-outline"
+            title={overall.achieved ? 'ALL GOALS ACHIEVED' : 'NO GOALS YET'}
+            text={overall.achieved ? 'Respect. Set the next one — your achieved goals are in the trophy history.' : 'Pick one thing you want to achieve. Then break it into small steps.'}
+            action="ADD A GOAL"
+            onAction={newGoal}
+          />
         ) : (
           <View style={{ gap: 12 }}>
             {active.map((g, i) => (
               <Animated.View key={g.id} entering={FadeInDown.delay(i * 50).duration(400)}>
-                <GoalCard goal={g} progress={goalProgress(g, tasks)} />
+                <GoalCard goal={g} progress={goalProgress(g)} />
               </Animated.View>
             ))}
           </View>
         )}
-
-        <View style={{ marginTop: 16 }}>
-          <DoneToggle count={achieved.length} open={showAchieved} onToggle={() => setShowAchieved((v) => !v)} label="ACHIEVED" />
-        </View>
-        {showAchieved ? (
-          <View style={{ gap: 12 }}>
-            {achieved.map((g) => (
-              <GoalCard key={g.id} goal={g} progress={goalProgress(g, tasks)} />
-            ))}
-          </View>
-        ) : null}
       </ScrollView>
     </Screen>
   );
@@ -69,7 +74,7 @@ function GoalCard({ goal, progress }: { goal: Goal; progress: { done: number; to
   const today = todayKey();
   const achieved = goal.status === 'achieved';
 
-  let line = progress.total ? `${progress.done} of ${progress.total} done` : 'No steps yet';
+  let line = progress.total ? `${progress.done} of ${progress.total} steps done` : 'No steps yet';
   let lineColor = c.textDim;
   if (achieved) {
     const k = isoToKey(goal.achieved_at);

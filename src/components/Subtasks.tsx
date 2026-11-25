@@ -6,17 +6,19 @@ import type { Subtask } from '@/store/data';
 import { alpha, fonts, useTheme } from '@/theme';
 import { Txt } from './ui';
 
-/** Checklist of steps inside a task. */
+/** Checklist of steps (inside a task or a goal). */
 export function Subtasks({
   items,
   onToggle,
   onRemove,
   onAdd,
+  placeholder,
 }: {
-  items: Subtask[];
+  items: Pick<Subtask, 'id' | 'title' | 'done'>[];
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
   onAdd: (title: string) => void;
+  placeholder?: string;
 }) {
   const { c, accent, onAccent } = useTheme();
   const [text, setText] = useState('');
@@ -82,7 +84,7 @@ export function Subtasks({
           value={text}
           onChangeText={setText}
           onSubmitEditing={add}
-          placeholder={items.length ? 'Add another step…' : 'Add a step…'}
+          placeholder={placeholder ?? (items.length ? 'Add another step…' : 'Add a step…')}
           placeholderTextColor={c.textFaint}
           selectionColor={accent}
           returnKeyType="done"

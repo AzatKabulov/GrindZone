@@ -267,6 +267,7 @@ export function IconBtn({
   size = 40,
   color,
   style,
+  disabled,
 }: {
   icon: IconName;
   onPress?: () => void;
@@ -274,6 +275,7 @@ export function IconBtn({
   size?: number;
   color?: string;
   style?: StyleProp<ViewStyle>;
+  disabled?: boolean;
 }) {
   const { c, accent, onAccent } = useTheme();
   return (
@@ -281,9 +283,11 @@ export function IconBtn({
       tapHaptic
       scaleTo={0.9}
       onPress={onPress}
+      disabled={disabled}
       hitSlop={6}
       style={[
         {
+          opacity: disabled ? 0.35 : 1,
           width: size,
           height: size,
           borderRadius: size * 0.32,
@@ -428,21 +432,27 @@ export function Screen({ children, style }: { children: ReactNode; style?: Style
 export function ScreenTitle({
   kicker,
   title,
+  middle,
   right,
 }: {
   kicker?: string;
   title: string;
+  /** Shown right after the title (e.g. a progress ring). */
+  middle?: ReactNode;
   right?: ReactNode;
 }) {
   const { accent } = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-end', paddingTop: 10, marginBottom: 18 }}>
-      <View style={{ flex: 1 }}>
-        {kicker ? <Txt variant="label">{kicker}</Txt> : null}
-        <Txt variant="display" style={{ marginTop: 6 }}>
-          {title}
-          <Text style={{ color: accent }}>.</Text>
-        </Txt>
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 14 }}>
+        <View>
+          {kicker ? <Txt variant="label">{kicker}</Txt> : null}
+          <Txt variant="display" style={{ marginTop: 6 }}>
+            {title}
+            <Text style={{ color: accent }}>.</Text>
+          </Txt>
+        </View>
+        {middle}
       </View>
       {right ? <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>{right}</View> : null}
     </View>

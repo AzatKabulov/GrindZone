@@ -13,6 +13,7 @@ import {
   fmtMin,
   minutesNow,
   monthShort,
+  niceLabel,
   relativeLabel,
   startOfWeek,
   todayKey,
@@ -21,9 +22,10 @@ import {
 } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
 import { useNow } from '@/lib/useNow';
-import { copyDay } from '@/store/actions';
+import { copyDay, deleteBlock, duplicateBlock, shiftBlock } from '@/store/actions';
 import { useData, type Block } from '@/store/data';
 import { useFx } from '@/store/fx';
+import { useMenu } from '@/store/menu';
 import { alive, blocksForDay } from '@/store/selectors';
 import { alpha, fonts, useTheme } from '@/theme';
 
@@ -238,10 +240,30 @@ function BlockCard({ block, col, cols }: { block: Block; col: number; cols: numb
   const cat = BLOCK_CATEGORIES[block.category];
   const roomy = height >= 50;
 
+  // Press and hold: edit, duplicate, move or delete without opening the block.
+  const openMenu = () => {
+    haptic.medium();
+    const day = niceLabel(block.date);
+    useMenu.getState().open({
+      kicker: `${day.toUpperCase()} · ${fmtMin(block.start_min)}–${fmtMin(block.end_min)}`,
+      title: block.title || cat.label,
+      subtitle: `${cat.label.charAt(0)}${cat.label.slice(1).toLowerCase()} · ${fmtDuration(block.end_min - block.start_min).toLowerCase()}${block.note ? ` · ${block.note}` : ''}`,
+      color,
+      actions: [
+        { label: 'Edit', icon: 'create-outline', run: () => router.push({ pathname: '/block/[id]', params: { id: block.id } }) },
+        { label: 'Move 30 min later', icon: 'arrow-down-outline', run: () => shiftBlock(block.id, 30) },
+        { label: 'Duplicate to tomorrow', icon: 'copy-outline', run: () => duplicateBlock(block.id, addDays(block.date, 1)) },
+        { label: 'Delete', icon: 'trash-outline', danger: true, run: () => deleteBlock(block.id) },
+      ],
+    });
+  };
+
   return (
     <Press
       scaleTo={0.97}
       onPress={() => router.push({ pathname: '/block/[id]', params: { id: block.id } })}
+      onLongPress={openMenu}
+      delayLongPress={300}
       style={{
         position: 'absolute',
         top: top + 1,

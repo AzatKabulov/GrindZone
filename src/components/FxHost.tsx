@@ -16,9 +16,11 @@ import Animated, {
   withTiming,
   ZoomIn,
 } from 'react-native-reanimated';
+import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { scheduleOnRN } from 'react-native-worklets';
 
-import { useFx, type Overlay } from '@/store/fx';
+import { useFx, type Overlay, type Toast } from '@/store/fx';
 import { alpha, fonts, useTheme } from '@/theme';
 
 /** The quote slides down from the top and simply stops: no spring, no bounce, so it's easy to read straight away. */
@@ -26,52 +28,83 @@ const dropIn = FadeInUp.duration(320)
   .easing(Easing.out(Easing.cubic))
   .withInitialValues({ transform: [{ translateY: -40 }] });
 
+/** A quote / info card at the top. Tap it (runs its action, e.g. undo) or swipe it up to send it away. */
+function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
+  const { c, accent, onAccent, isDark } = useTheme();
+  const ty = useSharedValue(0);
+  const gone = useSharedValue(0);
+  const swipe = usePanGesture({
+    activeOffsetY: [-6, 6],
+    onUpdate: (e) => {
+      'worklet';
+      // Up follows the finger; down only stretches a little.
+      ty.value = e.translationY < 0 ? e.translationY : e.translationY / 5;
+    },
+    onDeactivate: (e) => {
+      'worklet';
+      if (ty.value < -28 || e.velocityY < -450) {
+        gone.value = withTiming(1, { duration: 180 });
+        ty.value = withTiming(-140, { duration: 180, easing: Easing.out(Easing.cubic) }, () => scheduleOnRN(onDismiss));
+      } else {
+        ty.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) });
+      }
+    },
+  });
+  const style = useAnimatedStyle(() => ({ transform: [{ translateY: ty.value }], opacity: 1 - gone.value }));
+
+  return (
+    <Animated.View entering={dropIn} exiting={FadeOutUp.duration(220)}>
+      <GestureDetector gesture={swipe}>
+        <Animated.View style={style}>
+          <Pressable
+            onPress={() => {
+              toast.onPress?.();
+              onDismiss();
+            }}
+            accessibilityHint="Swipe up to dismiss"
+            style={{
+              flexDirection: 'row',
+              gap: 12,
+              padding: 14,
+              borderRadius: 18,
+              backgroundColor: isDark ? '#17140F' : '#FFFFFF',
+              borderWidth: 1,
+              borderColor: alpha(accent, 0.45),
+              shadowColor: isDark ? accent : '#000',
+              shadowOpacity: isDark ? 0.35 : 0.15,
+              shadowRadius: 22,
+              shadowOffset: { width: 0, height: 8 },
+            }}
+          >
+            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name={toast.onPress ? 'arrow-undo' : 'checkmark-sharp'} size={17} color={onAccent} />
+            </View>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={{ fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.6, color: accent }}>{toast.label}</Text>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: c.text }}>{toast.text}</Text>
+              {toast.by ? <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: c.textDim }}>— {toast.by}</Text> : null}
+            </View>
+          </Pressable>
+          {/* grab handle: hints that it can be swiped away */}
+          <View style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: c.borderStrong, marginTop: 6, opacity: 0.8 }} />
+        </Animated.View>
+      </GestureDetector>
+    </Animated.View>
+  );
+}
+
 /** Renders the quote toast and full-screen celebrations. Mount once at the root (and inside native modals). */
 export function FxHost() {
   const toast = useFx((s) => s.toast);
   const overlay = useFx((s) => s.overlay);
   const dismissToast = useFx((s) => s.dismissToast);
   const insets = useSafeAreaInsets();
-  const { c, accent, onAccent, isDark } = useTheme();
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
       {overlay ? <Celebration key={overlay.id} overlay={overlay} /> : null}
       <View pointerEvents="box-none" style={{ position: 'absolute', top: insets.top + 8, left: 14, right: 14 }}>
-        {toast ? (
-          <Animated.View key={toast.id} entering={dropIn} exiting={FadeOutUp.duration(220)}>
-            <Pressable
-              onPress={() => {
-                toast.onPress?.();
-                dismissToast();
-              }}
-              style={{
-                flexDirection: 'row',
-                gap: 12,
-                padding: 14,
-                borderRadius: 18,
-                backgroundColor: isDark ? '#17140F' : '#FFFFFF',
-                borderWidth: 1,
-                borderColor: alpha(accent, 0.45),
-                shadowColor: isDark ? accent : '#000',
-                shadowOpacity: isDark ? 0.35 : 0.15,
-                shadowRadius: 22,
-                shadowOffset: { width: 0, height: 8 },
-              }}
-            >
-              <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name={toast.onPress ? 'arrow-undo' : 'checkmark-sharp'} size={17} color={onAccent} />
-              </View>
-              <View style={{ flex: 1, gap: 4 }}>
-                <Text style={{ fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.6, color: accent }}>{toast.label}</Text>
-                <Text style={{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: c.text }}>{toast.text}</Text>
-                {toast.by ? (
-                  <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: c.textDim }}>— {toast.by}</Text>
-                ) : null}
-              </View>
-            </Pressable>
-          </Animated.View>
-        ) : null}
+        {toast ? <ToastCard key={toast.id} toast={toast} onDismiss={dismissToast} /> : null}
       </View>
     </View>
   );

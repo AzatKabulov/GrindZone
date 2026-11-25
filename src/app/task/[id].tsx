@@ -1,9 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { EmojiPicker } from '@/components/EmojiPicker';
+import { EmojiButton } from '@/components/EmojiPicker';
 import { DatePicker, FieldLabel, SheetHeader } from '@/components/pickers';
 import { Subtasks } from '@/components/Subtasks';
 import { Button, Chip, Input } from '@/components/ui';
@@ -12,15 +12,13 @@ import { addDays, todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
 import { toggleTask } from '@/store/actions';
 import { useData, uuid, type Subtask } from '@/store/data';
-import { alive } from '@/store/selectors';
 import { fonts, useTheme } from '@/theme';
 
-/** Task editor: what, when, how important, an emoji, the steps, and (optionally) the goal it serves. */
+/** Task editor: an emoji, what, when, how important, and the steps. (Goals and their steps live on the Goals tab.) */
 export default function TaskEditor() {
-  const params = useLocalSearchParams<{ id: string; due?: string; goal?: string }>();
+  const params = useLocalSearchParams<{ id: string; due?: string }>();
   const isNew = params.id === 'new';
   const existing = useData((s) => (isNew ? undefined : s.tasks[params.id]));
-  const goals = useData((s) => s.goals);
   const { create, patch, remove } = useData.getState();
   const { c, accent } = useTheme();
   const insets = useSafeAreaInsets();
@@ -32,12 +30,9 @@ export default function TaskEditor() {
   const [priority, setPriority] = useState<Priority>(existing?.priority ?? 2);
   const [steps, setSteps] = useState<Subtask[]>(existing?.subtasks ?? []);
   const [due, setDue] = useState<string | null>(existing ? existing.due_date : params.due === 'none' ? null : (params.due ?? today));
-  const [goalId, setGoalId] = useState<string | null>(existing?.goal_id ?? params.goal ?? null);
-
-  const activeGoals = useMemo(() => alive(goals).filter((g) => g.status === 'active' || g.id === goalId), [goals, goalId]);
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
-  const fields = () => ({ title: title.trim(), notes: notes.trim(), emoji, priority, subtasks: steps, due_date: due, goal_id: goalId });
+  const fields = () => ({ title: title.trim(), notes: notes.trim(), emoji, priority, subtasks: steps, due_date: due });
 
   const save = () => {
     if (!title.trim()) return haptic.warning();
@@ -70,12 +65,14 @@ export default function TaskEditor() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: c.bgElevated }}>
+    <View style={{ flex: 1, backgroundColor: c.bgElevated }}>
       <SheetHeader kicker={isNew ? 'NEW' : existing?.done ? 'DONE' : 'EDIT'} title={isNew ? 'NEW TASK' : 'TASK'} onClose={close} />
-      <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 24 }} keyboardShouldPersistTaps="handled">
+      <ScrollView
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="interactive" contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 24 }} keyboardShouldPersistTaps="handled">
         <View>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-            {emoji ? <Text style={{ fontSize: 30, lineHeight: 40 }}>{emoji}</Text> : null}
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+            <EmojiButton value={emoji} onChange={setEmoji} />
             <TextInput
               value={title}
               onChangeText={setTitle}
@@ -128,23 +125,6 @@ export default function TaskEditor() {
           />
         </View>
 
-        <View>
-          <FieldLabel>EMOJI</FieldLabel>
-          <EmojiPicker value={emoji} onChange={setEmoji} />
-        </View>
-
-        {activeGoals.length ? (
-          <View>
-            <FieldLabel>GOAL (OPTIONAL)</FieldLabel>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              <Chip label="NONE" active={!goalId} onPress={() => setGoalId(null)} />
-              {activeGoals.map((g) => (
-                <Chip key={g.id} label={g.title.toUpperCase() || 'UNTITLED'} active={goalId === g.id} onPress={() => setGoalId(g.id)} />
-              ))}
-            </View>
-          </View>
-        ) : null}
-
         <View style={{ gap: 10 }}>
           <Button label={isNew ? 'ADD TASK' : 'SAVE'} icon={isNew ? 'add' : 'checkmark'} onPress={save} disabled={!title.trim()} />
           {existing ? (
@@ -165,6 +145,6 @@ export default function TaskEditor() {
           ) : null}
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }

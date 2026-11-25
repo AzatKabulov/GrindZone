@@ -61,7 +61,10 @@ export function activityByDay(src: ActivitySources): Record<string, number> {
   for (const b of alive(src.blocks)) add(isoToKey(b.created_at));
   for (const n of alive(src.notes)) if (n.title.trim() || n.body.trim()) add(isoToKey(n.updated_at));
   for (const h of alive(src.habits)) for (const d of h.checks ?? []) add(d);
-  for (const g of Object.values(src.goals)) if (g.status === 'achieved') add(isoToKey(g.achieved_at));
+  for (const g of Object.values(src.goals)) {
+    if (g.status === 'achieved') add(isoToKey(g.achieved_at));
+    if (!g.deleted) for (const st of g.steps ?? []) if (st.done) add(isoToKey(st.done_at));
+  }
   for (const [d, n] of Object.entries(src.focus ?? {})) add(d, n);
   return out;
 }
@@ -111,18 +114,38 @@ export function bestStreak(days: Set<string>): number {
   return best;
 }
 
-export function goalTasks(tasks: Record<string, Task>, goalId: string): Task[] {
-  return alive(tasks)
-    .filter((t) => t.goal_id === goalId)
-    .sort((a, b) => Number(a.done) - Number(b.done) || sortTasks(a, b));
-}
-
-export function goalProgress(goal: Goal, tasks: Record<string, Task>) {
-  const linked = goalTasks(tasks, goal.id);
-  const done = linked.filter((t) => t.done).length;
-  const total = linked.length;
+/** A goal's progress comes from its own steps (an achieved goal is 100%). */
+export function goalProgress(goal: Goal) {
+  const steps = goal.steps ?? [];
+  const done = steps.filter((x) => x.done).length;
+  const total = steps.length;
   const progress = goal.status === 'achieved' ? 1 : total ? done / total : 0;
   return { done, total, progress };
+}
+
+/**
+ * Progress over all your goals, counted in steps: every step is one unit and a goal without steps
+ * counts as one unit (done once it's achieved). An achieved goal counts all its units as done.
+ */
+export function goalsProgress(goals: Record<string, Goal>) {
+  let units = 0;
+  let doneUnits = 0;
+  let achieved = 0;
+  let total = 0;
+  for (const g of alive(goals)) {
+    if (g.status === 'archived') continue;
+    total++;
+    const steps = g.steps ?? [];
+    const n = Math.max(1, steps.length);
+    units += n;
+    if (g.status === 'achieved') {
+      achieved++;
+      doneUnits += n;
+    } else {
+      doneUnits += steps.filter((x) => x.done).length;
+    }
+  }
+  return { units, doneUnits, achieved, total, progress: units ? doneUnits / units : 0 };
 }
 
 export function blockNow(list: Block[], nowMin: number) {
@@ -143,4 +166,39 @@ export function habitBest(h: Habit): number {
 export function subtaskProgress(t: Task) {
   const list = t.subtasks ?? [];
   return { done: list.filter((s) => s.done).length, total: list.length };
+}
+
+/* ───────────────────────────── Task history by day ───────────────────────────── */
+
+export interface DayTasks {
+  /** Finished that day. */
+  done: Task[];
+  /** Due that day and not finished that day (finished later, or still open). */
+  missed: Task[];
+}
+
+/**
+ * What each day looked like. A task counts as done on the day you finished it, and as missed on its
+ * due date if it wasn't finished by then. Today counts like the Today list: open tasks due today or
+ * earlier, plus everything finished today.
+ */
+export function taskDays(tasks: Record<string, Task>, today: string): Record<string, DayTasks> {
+  const out: Record<string, DayTasks> = {};
+  const at = (d: string) => (out[d] ??= { done: [], missed: [] });
+  for (const t of alive(tasks)) {
+    const doneDay = t.done ? isoToKey(t.done_at) : null;
+    if (doneDay) at(doneDay).done.push(t);
+    if (t.due_date && t.due_date < today && (!doneDay || doneDay > t.due_date)) at(t.due_date).missed.push(t);
+    if (!t.done && t.due_date && t.due_date <= today) at(today).missed.push(t);
+  }
+  // Today: tasks that went overdue earlier are still on today's list — count them once, here.
+  if (out[today]) out[today].missed = [...new Map(out[today].missed.map((t) => [t.id, t])).values()];
+  return out;
+}
+
+/** Share of a day's tasks that got done (null when the day had none). */
+export function dayRatio(d: DayTasks | undefined): number | null {
+  if (!d) return null;
+  const total = d.done.length + d.missed.length;
+  return total ? d.done.length / total : null;
 }

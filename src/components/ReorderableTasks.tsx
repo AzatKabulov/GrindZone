@@ -71,13 +71,11 @@ export const ReorderableTasks = memo(function ReorderableTasks({
   tasks,
   groupOf,
   showDue = true,
-  showGoal = true,
 }: {
   tasks: Task[];
   /** Rows can only move among rows with the same group (e.g. the same due date). */
   groupOf?: (t: Task) => string;
   showDue?: boolean;
-  showGoal?: boolean;
 }) {
   const ids = useMemo(() => tasks.map((t) => t.id), [tasks]);
   const idsKey = ids.join(',');
@@ -148,7 +146,6 @@ export const ReorderableTasks = memo(function ReorderableTasks({
           onHeight={onHeight}
           onMove={onMove}
           showDue={showDue}
-          showGoal={showGoal}
         />
       ))}
     </Animated.View>
@@ -162,7 +159,6 @@ const Item = memo(function Item({
   onHeight,
   onMove,
   showDue,
-  showGoal,
 }: {
   task: Task;
   shared: Shared;
@@ -170,7 +166,6 @@ const Item = memo(function Item({
   onHeight: (id: string, h: number) => void;
   onMove: (from: number, to: number) => void;
   showDue: boolean;
-  showGoal: boolean;
 }) {
   const id = task.id;
   const { order, dragOrder, heights, layout, activeId, abs, live } = shared;
@@ -335,7 +330,7 @@ const Item = memo(function Item({
       >
         <SwipeFrame swipe={swipe}>
           <View ref={ref} collapsable={false}>
-            <TaskRow task={task} showDue={showDue} showGoal={showGoal} managed />
+            <TaskRow task={task} showDue={showDue} managed />
           </View>
         </SwipeFrame>
       </Animated.View>

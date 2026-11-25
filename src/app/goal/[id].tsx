@@ -1,27 +1,24 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
+import { Alert, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FxHost } from '@/components/FxHost';
-import { PeekHost } from '@/components/TaskPeek';
-import { QuickAdd } from '@/components/ListBits';
 import { DatePicker, FieldLabel, SheetHeader } from '@/components/pickers';
-import { TaskRow } from '@/components/TaskRow';
+import { Subtasks } from '@/components/Subtasks';
 import { Button, Card, Input, ProgressBar, Section, Txt } from '@/components/ui';
-import { addDays, diffDays, todayKey } from '@/lib/date';
+import { addDays, diffDays, nowIso, todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
-import { setGoalAchieved } from '@/store/actions';
-import { useData } from '@/store/data';
-import { goalProgress, goalTasks } from '@/store/selectors';
+import { addGoalStep, removeGoalStep, setGoalAchieved, toggleGoalStep } from '@/store/actions';
+import { uuid, useData, type GoalStep } from '@/store/data';
+import { goalProgress } from '@/store/selectors';
 import { fonts, useTheme } from '@/theme';
 
-/** A goal = a name, (optionally) why and a deadline, and the steps that get you there. */
+/** A goal = a name, (optionally) why and a deadline, and its own checklist of steps (steps are not tasks). */
 export default function GoalScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const isNew = params.id === 'new';
   const existing = useData((s) => (isNew ? undefined : s.goals[params.id]));
-  const tasks = useData((s) => s.tasks);
   const { create, patch, remove } = useData.getState();
   const { c, accent } = useTheme();
   const insets = useSafeAreaInsets();
@@ -31,8 +28,10 @@ export default function GoalScreen() {
   const [why, setWhy] = useState(existing?.why ?? '');
   const [target, setTarget] = useState<string | null>(existing?.target_date ?? null);
 
-  const steps = useMemo(() => (existing ? goalTasks(tasks, existing.id) : []), [tasks, existing]);
-  const progress = existing ? goalProgress(existing, tasks) : { done: 0, total: 0, progress: 0 };
+  // Steps for a goal that isn't saved yet are kept here and saved with it.
+  const [draftSteps, setDraftSteps] = useState<GoalStep[]>([]);
+  const steps = useMemo(() => (existing ? (existing.steps ?? []) : draftSteps), [existing, draftSteps]);
+  const progress = existing ? goalProgress(existing) : { done: 0, total: 0, progress: 0 };
   const achieved = existing?.status === 'achieved';
   const dirty = !!existing && (title.trim() !== existing.title || why.trim() !== existing.why || target !== existing.target_date);
 
@@ -46,7 +45,7 @@ export default function GoalScreen() {
       haptic.medium();
       close();
     } else {
-      const g = create('goals', fields());
+      const g = create('goals', { ...fields(), steps: draftSteps });
       haptic.success();
       router.replace({ pathname: '/goal/[id]', params: { id: g.id } });
     }
@@ -60,7 +59,7 @@ export default function GoalScreen() {
       close();
     };
     if (Platform.OS === 'web') return run();
-    Alert.alert('Delete goal?', 'Its steps stay in your task list.', [
+    Alert.alert('Delete goal?', 'The goal and its steps will be deleted.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: run },
     ]);
@@ -81,9 +80,11 @@ export default function GoalScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bgElevated }}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
         <SheetHeader kicker={isNew ? 'NEW' : achieved ? 'ACHIEVED' : 'GOAL'} title={isNew ? 'NEW GOAL' : 'GOAL'} onClose={close} />
-        <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 24 }} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="interactive" contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 24 }} keyboardShouldPersistTaps="handled">
           {existing ? (
             <Card style={{ gap: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
@@ -128,22 +129,25 @@ export default function GoalScreen() {
 
           {isNew || dirty ? <Button label={isNew ? 'ADD GOAL' : 'SAVE'} icon={isNew ? 'add' : 'checkmark'} onPress={save} disabled={!title.trim()} /> : null}
 
-          {existing ? (
-            <View>
-              <Section label="STEPS" count={steps.length} style={{ marginBottom: 12 }} />
-              <QuickAdd placeholder="Add the next step…" onAdd={(t) => create('tasks', { title: t, goal_id: existing.id, due_date: null })} />
-              <View style={{ gap: 8, marginTop: 8 }}>
-                {steps.map((t) => (
-                  <TaskRow key={t.id} task={t} showGoal={false} />
-                ))}
-              </View>
-              {steps.length === 0 ? (
-                <Txt variant="small" color={c.textFaint} style={{ marginTop: 12 }}>
-                  Break the goal into small steps. Progress fills up as you finish them.
-                </Txt>
-              ) : null}
-            </View>
-          ) : null}
+          <View>
+            <Section label="STEPS" count={steps.length ? `${steps.filter((x) => x.done).length}/${steps.length}` : undefined} style={{ marginBottom: 8 }} />
+            <Subtasks
+              items={steps}
+              placeholder={steps.length ? 'Add the next step…' : 'Add a first step…'}
+              onToggle={(id) =>
+                existing
+                  ? toggleGoalStep(existing.id, id)
+                  : setDraftSteps((l) => l.map((x) => (x.id === id ? { ...x, done: !x.done, done_at: x.done ? null : nowIso() } : x)))
+              }
+              onRemove={(id) => (existing ? removeGoalStep(existing.id, id) : setDraftSteps((l) => l.filter((x) => x.id !== id)))}
+              onAdd={(t) => (existing ? addGoalStep(existing.id, t) : setDraftSteps((l) => [...l, { id: uuid(), title: t, done: false, done_at: null }]))}
+            />
+            {steps.length === 0 ? (
+              <Txt variant="small" color={c.textFaint} style={{ marginTop: 6 }}>
+                Break the goal into small steps. Progress fills up as you tick them off.
+              </Txt>
+            ) : null}
+          </View>
 
           {existing ? (
             <View style={{ gap: 10 }}>
@@ -160,8 +164,7 @@ export default function GoalScreen() {
             </View>
           ) : null}
         </ScrollView>
-      </KeyboardAvoidingView>
-      <PeekHost />
+      </View>
       <FxHost />
     </View>
   );

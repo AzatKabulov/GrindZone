@@ -7,7 +7,7 @@ import { PRIORITIES } from '@/lib/categories';
 import { niceLabel, todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
 import { toggleTask } from '@/store/actions';
-import { useData, type Task } from '@/store/data';
+import type { Task } from '@/store/data';
 import { closeSwipes, justHeld, useSwipeOpen } from '@/store/drag';
 import { usePeek } from '@/store/peek';
 import { subtaskProgress } from '@/store/selectors';
@@ -16,23 +16,20 @@ import { Checkbox } from './Checkbox';
 import { Press, Txt } from './ui';
 
 /**
- * One task: checkbox, emoji, title, one short hint line (date · goal · steps) and its priority emoji.
+ * One task: checkbox, emoji, title, one short hint line (date · steps) and its priority emoji.
  * Tap to edit, press and hold for the quick preview.
  * `managed`: the row sits in a ReorderableTasks list, which handles press-and-hold and the animations.
  */
 export const TaskRow = memo(function TaskRow({
   task,
   showDue = true,
-  showGoal = true,
   managed = false,
 }: {
   task: Task;
   showDue?: boolean;
-  showGoal?: boolean;
   managed?: boolean;
 }) {
   const { c, accent } = useTheme();
-  const goal = useData((s) => (task.goal_id ? s.goals[task.goal_id] : undefined));
   const ref = useRef<ViewInstance>(null);
   const today = todayKey();
   const overdue = !task.done && !!task.due_date && task.due_date < today;
@@ -64,7 +61,6 @@ export const TaskRow = memo(function TaskRow({
       hints.push({ text: overdue ? `Overdue · ${niceLabel(task.due_date, today)}` : niceLabel(task.due_date, today), color: overdue ? c.danger : c.textDim });
     }
     if (steps.total) hints.push({ text: `${steps.done}/${steps.total} steps`, color: steps.done === steps.total ? accent : c.textDim });
-    if (showGoal && goal && !goal.deleted) hints.push({ text: goal.title, color: c.textDim });
   }
 
   return (

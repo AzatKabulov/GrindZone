@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
+import { Alert, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FieldLabel, SheetHeader, TimeField } from '@/components/pickers';
@@ -65,9 +65,11 @@ export default function BlockEditor() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: c.bgElevated }}>
+    <View style={{ flex: 1, backgroundColor: c.bgElevated }}>
       <SheetHeader kicker={isNew ? 'NEW' : 'EDIT'} title="TIME BLOCK" onClose={close} />
-      <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 24 }} keyboardShouldPersistTaps="handled">
+      <ScrollView
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="interactive" contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 24 }} keyboardShouldPersistTaps="handled">
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <View style={{ width: 4, borderRadius: 2, backgroundColor: color }} />
           <TextInput
@@ -127,6 +129,6 @@ export default function BlockEditor() {
           {existing ? <Button label="DELETE" icon="trash-outline" variant="danger" onPress={del} /> : null}
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }

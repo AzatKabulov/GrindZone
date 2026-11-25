@@ -41,6 +41,7 @@ export default function TodayScreen() {
   const create = useData((s) => s.create);
   const focusHistory = useFocus((s) => s.history);
   const customMantra = useSettings((s) => s.customMantra);
+  const mantraSize = useSettings((s) => s.mantraSize ?? 48);
   const syncError = useSync((s) => s.status === 'error');
   const [showDone, setShowDone] = useState(false);
   const [editMantra, setEditMantra] = useState(false);
@@ -67,8 +68,10 @@ export default function TodayScreen() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
         <ScrollView
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="interactive"
           contentContainerStyle={{ padding: 20, paddingBottom: TAB_BAR_SPACE }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -92,7 +95,7 @@ export default function TodayScreen() {
           {/* Your line for the day — tap to write your own */}
           <Animated.View entering={FadeInDown.duration(450)}>
             <Press scaleTo={0.98} onPress={() => setEditMantra(true)} style={{ marginTop: 14 }}>
-              <Txt variant="display" size={48} adjustsFontSizeToFit numberOfLines={2}>
+              <Txt variant="display" size={mantraSize} adjustsFontSizeToFit numberOfLines={3}>
                 {mantra.toUpperCase().replace(/[.!]+$/, '')}
                 <Text style={{ color: accent }}>.</Text>
               </Txt>
@@ -160,7 +163,7 @@ export default function TodayScreen() {
             </View>
           ) : null}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
       {editMantra ? <MantraEditor current={customMantra} onClose={() => setEditMantra(false)} /> : null}
     </Screen>
   );
@@ -202,14 +205,23 @@ function ScheduleLine({ block, isNow, nowMin }: { block: Block; isNow: boolean; 
   );
 }
 
-/** Write your own line for the top of Today, or go back to the rotating daily quotes. */
+const SIZES = [
+  { label: 'XS', v: 28 },
+  { label: 'S', v: 34 },
+  { label: 'M', v: 40 },
+  { label: 'L', v: 48 },
+  { label: 'XL', v: 56 },
+];
+
+/** Write your own line for the top of Today (and pick its size), or go back to the rotating daily quotes. */
 function MantraEditor({ current, onClose }: { current: string; onClose: () => void }) {
-  const { c, accent, isDark } = useTheme();
+  const { c, accent, onAccent, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const set = useSettings((s) => s.set);
   const [text, setText] = useState(current || mantraOfTheDay());
+  const [size, setSize] = useState(useSettings.getState().mantraSize ?? 48);
   const save = () => {
-    set({ customMantra: text.trim() });
+    set({ customMantra: text.trim(), mantraSize: size });
     haptic.success();
     onClose();
   };
@@ -232,6 +244,7 @@ function MantraEditor({ current, onClose }: { current: string; onClose: () => vo
           <Txt variant="label" color={accent}>
             YOUR LINE FOR THE DAY
           </Txt>
+          {/* Typed at the chosen size, so this is exactly how it will look on Today */}
           <TextInput
             value={text}
             onChangeText={setText}
@@ -242,8 +255,34 @@ function MantraEditor({ current, onClose }: { current: string; onClose: () => vo
             placeholderTextColor={c.textFaint}
             selectionColor={accent}
             keyboardAppearance={isDark ? 'dark' : 'light'}
-            style={{ fontFamily: fonts.display, fontSize: 40, lineHeight: 42, color: c.text, paddingVertical: 4 }}
+            style={{ fontFamily: fonts.display, fontSize: size, lineHeight: size * 1.05, color: c.text, paddingVertical: 4, textTransform: 'uppercase' }}
           />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Txt variant="label" style={{ marginRight: 4 }}>
+              SIZE
+            </Txt>
+            {SIZES.map((o, i) => (
+              <Pressable
+                key={o.v}
+                onPress={() => {
+                  haptic.tap();
+                  setSize(o.v);
+                }}
+                style={{
+                  flex: 1,
+                  height: 36,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: size === o.v ? accent : c.surface2,
+                  borderWidth: 1,
+                  borderColor: size === o.v ? accent : c.border,
+                }}
+              >
+                <Text style={{ fontFamily: fonts.display, fontSize: 12 + i * 3.5, color: size === o.v ? onAccent : c.text }}>A</Text>
+              </Pressable>
+            ))}
+          </View>
           <Button label="SAVE" icon="checkmark" onPress={save} disabled={!text.trim()} />
           {current ? (
             <Button
@@ -252,7 +291,7 @@ function MantraEditor({ current, onClose }: { current: string; onClose: () => vo
               variant="outline"
               small
               onPress={() => {
-                set({ customMantra: '' });
+                set({ customMantra: '', mantraSize: size });
                 haptic.light();
                 onClose();
               }}
