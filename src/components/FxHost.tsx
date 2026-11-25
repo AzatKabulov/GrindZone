@@ -5,7 +5,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
-  FadeInDown,
+  FadeInUp,
   FadeOut,
   FadeOutUp,
   useAnimatedStyle,
@@ -21,6 +21,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFx, type Overlay } from '@/store/fx';
 import { alpha, fonts, useTheme } from '@/theme';
 
+/** The quote slides down from the top and simply stops: no spring, no bounce, so it's easy to read straight away. */
+const dropIn = FadeInUp.duration(320)
+  .easing(Easing.out(Easing.cubic))
+  .withInitialValues({ transform: [{ translateY: -40 }] });
+
 /** Renders the quote toast and full-screen celebrations. Mount once at the root (and inside native modals). */
 export function FxHost() {
   const toast = useFx((s) => s.toast);
@@ -34,9 +39,12 @@ export function FxHost() {
       {overlay ? <Celebration key={overlay.id} overlay={overlay} /> : null}
       <View pointerEvents="box-none" style={{ position: 'absolute', top: insets.top + 8, left: 14, right: 14 }}>
         {toast ? (
-          <Animated.View key={toast.id} entering={FadeInDown.springify().damping(16)} exiting={FadeOutUp.duration(220)}>
+          <Animated.View key={toast.id} entering={dropIn} exiting={FadeOutUp.duration(220)}>
             <Pressable
-              onPress={dismissToast}
+              onPress={() => {
+                toast.onPress?.();
+                dismissToast();
+              }}
               style={{
                 flexDirection: 'row',
                 gap: 12,
@@ -52,7 +60,7 @@ export function FxHost() {
               }}
             >
               <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="checkmark-sharp" size={17} color={onAccent} />
+                <Ionicons name={toast.onPress ? 'arrow-undo' : 'checkmark-sharp'} size={17} color={onAccent} />
               </View>
               <View style={{ flex: 1, gap: 4 }}>
                 <Text style={{ fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.6, color: accent }}>{toast.label}</Text>

@@ -11,6 +11,7 @@ import { Heatmap } from '@/components/Heatmap';
 import { DoneToggle, QuickAdd } from '@/components/ListBits';
 import { ProgressRing } from '@/components/ProgressRing';
 import { ReorderableTasks } from '@/components/ReorderableTasks';
+import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { TaskRow } from '@/components/TaskRow';
 import { Button, Card, IconBtn, Press, ProgressBar, Screen, Section, TAB_BAR_SPACE, Txt } from '@/components/ui';
 import { BLOCK_CATEGORIES, blockColor } from '@/lib/categories';
@@ -19,7 +20,7 @@ import { haptic } from '@/lib/haptics';
 import { mantraOfTheDay } from '@/lib/quotes';
 import { useNow } from '@/lib/useNow';
 import { useData, type Block } from '@/store/data';
-import { useDrag } from '@/store/drag';
+import { closeSwipes, useDrag } from '@/store/drag';
 import { useFocus } from '@/store/focus';
 import { activeDays, activityByDay, blockNow, blocksForDay, currentStreak, tasksForDay } from '@/store/selectors';
 import { useSettings } from '@/store/settings';
@@ -72,6 +73,7 @@ export default function TodayScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           scrollEnabled={!dragging}
+          onScrollBeginDrag={closeSwipes}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 6 }}>
             <Txt variant="label" color={c.text} style={{ flex: 1 }}>
@@ -151,7 +153,9 @@ export default function TodayScreen() {
           {showDone ? (
             <View style={{ gap: 8 }}>
               {done.map((t) => (
-                <TaskRow key={t.id} task={t} />
+                <SwipeToDelete key={t.id} id={t.id}>
+                  <TaskRow task={t} />
+                </SwipeToDelete>
               ))}
             </View>
           ) : null}

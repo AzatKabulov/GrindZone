@@ -8,7 +8,7 @@ import { niceLabel, todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
 import { toggleTask } from '@/store/actions';
 import { useData, type Task } from '@/store/data';
-import { justHeld } from '@/store/drag';
+import { closeSwipes, justHeld, useSwipeOpen } from '@/store/drag';
 import { usePeek } from '@/store/peek';
 import { subtaskProgress } from '@/store/selectors';
 import { alpha, useTheme } from '@/theme';
@@ -45,7 +45,7 @@ export const TaskRow = memo(function TaskRow({
   const inFlight = !!pending && pending.from === task.done;
   const checked = inFlight ? !task.done : task.done;
   const onToggle = () => {
-    if (inFlight || (managed && justHeld())) return;
+    if (inFlight || justHeld()) return;
     haptic.light();
     setPending({ from: task.done });
     setTimeout(() => toggleTask(task.id), 380);
@@ -77,7 +77,8 @@ export const TaskRow = memo(function TaskRow({
         <Press
           scaleTo={0.985}
           onPress={() => {
-            if (managed && justHeld()) return;
+            if (justHeld()) return;
+            if (useSwipeOpen.getState().openId) return closeSwipes();
             router.push(`/task/${task.id}`);
           }}
           onLongPress={managed ? undefined : openPeek}
