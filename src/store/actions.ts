@@ -1,4 +1,4 @@
-import { addDays, nowIso, todayKey } from '@/lib/date';
+import { nowIso, todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
 import { COMPLETION_LINES } from '@/lib/quotes';
 import { levelInfo, XP } from '@/lib/xp';
@@ -45,7 +45,7 @@ export function toggleTask(id: string) {
 
   s.patch('tasks', id, { done: true, done_at: nowIso() });
   haptic.success();
-  useFx.getState().toast(`+${taskXp(t)} XP`, 'MISSION COMPLETE');
+  useFx.getState().toast(`+${taskXp(t)} XP`, 'TASK DONE');
 
   const leveled = rewardLevelUp(before, xpNow());
   const openAfter = tasksForDay(useData.getState().tasks, today).open.length;
@@ -53,27 +53,11 @@ export function toggleTask(id: string) {
     haptic.celebrate();
     useFx.getState().celebrate({
       kind: 'daywon',
-      kicker: 'ALL MISSIONS CLEARED',
+      kicker: 'ALL TASKS DONE',
       title: 'DAY WON',
       subtitle: COMPLETION_LINES[Math.floor(Math.random() * COMPLETION_LINES.length)],
     });
   }
-}
-
-export function toggleBlock(id: string) {
-  const s = useData.getState();
-  const b = s.blocks[id];
-  if (!b) return;
-  const before = xpNow();
-  if (b.done) {
-    s.patch('blocks', id, { done: false, done_at: null });
-    haptic.light();
-    return;
-  }
-  s.patch('blocks', id, { done: true, done_at: nowIso() });
-  haptic.success();
-  useFx.getState().toast(`+${XP.block} XP`, 'BLOCK EXECUTED');
-  rewardLevelUp(before, xpNow());
 }
 
 export function setGoalAchieved(id: string, achieved: boolean) {
@@ -92,7 +76,7 @@ export function setGoalAchieved(id: string, achieved: boolean) {
   const leveledUp = after.level > levelInfo(before).level;
   useFx.getState().celebrate({
     kind: 'goal',
-    kicker: 'GOAL CRUSHED',
+    kicker: 'GOAL ACHIEVED',
     title: g.title.toUpperCase() || 'GOAL',
     subtitle: leveledUp ? `+${XP.goal} XP · NOW LVL ${after.level} ${after.rank}` : `+${XP.goal} XP`,
   });
@@ -122,12 +106,3 @@ export function copyDay(from: string, to: string): number {
   if (fresh.length) haptic.success();
   return fresh.length;
 }
-
-export function clearDay(day: string) {
-  const s = useData.getState();
-  for (const b of blocksForDay(s.blocks, day)) s.remove('blocks', b.id);
-  haptic.warning();
-}
-
-export const yesterdayOf = (day: string) => addDays(day, -1);
-export const tomorrowOf = (day: string) => addDays(day, 1);

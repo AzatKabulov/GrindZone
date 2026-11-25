@@ -77,6 +77,13 @@ export function relativeLabel(key: string, today = todayKey()): string {
   return `${weekdayShort(key)} ${dayNum(key)} ${monthShort(key)}`;
 }
 
+/** 'Today' / 'Tomorrow' / 'Wed 26 Nov' — for sentences rather than uppercase labels. */
+export function niceLabel(key: string, today = todayKey()): string {
+  return relativeLabel(key, today)
+    .toLowerCase()
+    .replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
+}
+
 /** Monday-based start of week. */
 export function startOfWeek(key: string): string {
   const d = parseKey(key);

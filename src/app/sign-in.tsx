@@ -102,7 +102,7 @@ export default function SignInScreen() {
               ZONE<Text style={{ color: c.text }}>.</Text>
             </Text>
             <Txt variant="body" color={c.textDim} style={{ marginTop: 14, maxWidth: 300 }}>
-              Plan the day. Execute the missions. Stack the wins.
+              Plan the day. Get it done. Stack the wins.
             </Txt>
           </Animated.View>
 
@@ -139,7 +139,7 @@ export default function SignInScreen() {
             {mode === 'signup' ? (
               <Animated.View entering={FadeIn.duration(200)}>
                 <Txt variant="label" style={{ marginBottom: 8 }}>
-                  CALLSIGN
+                  NAME
                 </Txt>
                 <Input value={name} onChangeText={setName} placeholder="Your name" autoCapitalize="words" textContentType="nickname" />
               </Animated.View>

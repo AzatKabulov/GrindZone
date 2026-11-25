@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, Text, View, type GestureResponderEvent, type ScrollViewInstance } from 'react-native';
+import { Pressable, ScrollView, Text, View, type GestureResponderEvent, type ScrollViewInstance } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
-import { ActionSheet } from '@/components/pickers';
-import { IconBtn, Press, Screen, TAB_BAR_SPACE, Txt } from '@/components/ui';
+import { Button, IconBtn, Press, Screen, TAB_BAR_SPACE, Txt } from '@/components/ui';
 import { BLOCK_CATEGORIES, blockColor } from '@/lib/categories';
 import {
   addDays,
@@ -22,7 +21,7 @@ import {
 } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
 import { useNow } from '@/lib/useNow';
-import { clearDay, copyDay, toggleBlock } from '@/store/actions';
+import { copyDay } from '@/store/actions';
 import { useData, type Block } from '@/store/data';
 import { useFx } from '@/store/fx';
 import { alive, blocksForDay } from '@/store/selectors';
@@ -35,7 +34,6 @@ export default function PlanScreen() {
   const { c, accent, onAccent } = useTheme();
   const today = todayKey();
   const [day, setDay] = useState(today);
-  const [menu, setMenu] = useState(false);
   const blocks = useData((s) => s.blocks);
   useNow(30000);
 
@@ -47,7 +45,7 @@ export default function PlanScreen() {
   }, [day]);
 
   const totalMin = list.reduce((acc, b) => acc + (b.end_min - b.start_min), 0);
-  const doneCount = list.filter((b) => b.done).length;
+  const yesterdayCount = useMemo(() => blocksForDay(blocks, addDays(day, -1)).length, [blocks, day]);
 
   const scrollRef = useRef<ScrollViewInstance>(null);
   useEffect(() => {
@@ -79,15 +77,9 @@ export default function PlanScreen() {
     return last ? Math.min(23 * 60, last.end_min) : 9 * 60;
   };
 
-  const flash = (text: string, sub: string) => useFx.getState().toast(text, sub);
-
-  const confirmClear = () => {
-    const run = () => clearDay(day);
-    if (Platform.OS === 'web') return run();
-    Alert.alert('Clear this day?', `Delete all ${list.length} blocks planned for ${relativeLabel(day, today).toLowerCase()}.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: run },
-    ]);
+  const copyYesterday = () => {
+    const n = copyDay(addDays(day, -1), day);
+    useFx.getState().toast(`${n} ${n === 1 ? 'BLOCK' : 'BLOCKS'}`, 'COPIED FROM YESTERDAY');
   };
 
   const layout = useMemo(() => layoutColumns(list), [list]);
@@ -111,12 +103,11 @@ export default function PlanScreen() {
               </Press>
             )}
             <Txt variant="display" style={{ marginTop: 6 }}>
-              {isToday ? 'THE PLAN' : relativeLabel(day, today)}
+              {isToday ? 'PLAN' : relativeLabel(day, today)}
               <Text style={{ color: accent }}>.</Text>
             </Txt>
           </View>
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
-            <IconBtn icon="ellipsis-horizontal" onPress={() => setMenu(true)} />
+          <View style={{ marginBottom: 4 }}>
             <IconBtn icon="add" accentFill onPress={() => newBlockAt(nextSlot())} />
           </View>
         </View>
@@ -176,11 +167,23 @@ export default function PlanScreen() {
           </Pressable>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 16, marginTop: 14, marginBottom: 6 }}>
-          <Summary label="BLOCKS" value={String(list.length)} />
-          <Summary label="PLANNED" value={totalMin ? fmtDuration(totalMin) : '—'} />
-          <Summary label="EXECUTED" value={`${doneCount}/${list.length}`} accent={list.length > 0 && doneCount === list.length} />
-        </View>
+        <Txt variant="small" color={c.textDim} style={{ marginTop: 14, marginBottom: 6 }}>
+          {list.length ? `${list.length} ${list.length === 1 ? 'block' : 'blocks'} · ${fmtDuration(totalMin).toLowerCase()} planned` : 'Nothing planned for this day yet.'}
+        </Txt>
+
+        {list.length === 0 ? (
+          <Animated.View
+            entering={FadeIn}
+            style={{ marginTop: 6, marginBottom: 8, padding: 14, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, gap: 10 }}
+          >
+            <Txt variant="small" color={c.text}>
+              Tap any hour on the timeline below to add a block.
+            </Txt>
+            {yesterdayCount ? (
+              <Button label={`COPY YESTERDAY'S PLAN (${yesterdayCount})`} icon="copy-outline" variant="outline" small onPress={copyYesterday} />
+            ) : null}
+          </Animated.View>
+        ) : null}
       </View>
 
       <ScrollView
@@ -199,26 +202,11 @@ export default function PlanScreen() {
               <View style={{ flex: 1, height: 1, backgroundColor: h < 24 ? c.border : 'transparent' }} />
             </View>
           ))}
-          {Array.from({ length: 24 }, (_, h) => (
-            <View
-              key={`half-${h}`}
-              pointerEvents="none"
-              style={{
-                position: 'absolute',
-                top: h * HOUR_H + HOUR_H / 2,
-                left: GUTTER - 10,
-                right: 0,
-                height: 1,
-                backgroundColor: alpha(c.border, 0.45),
-              }}
-            />
-          ))}
-
           {/* Tap area to create */}
           <Pressable onPress={onGridPress} style={{ position: 'absolute', top: 0, bottom: 0, left: GUTTER - 10, right: 0 }} />
 
           {/* Blocks */}
-          <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, bottom: 0, left: GUTTER - 6, right: 0 }}>
+          <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, bottom: 0, left: GUTTER - 6, right: 0, zIndex: 2 }}>
             {list.map((b) => (
               <BlockCard key={b.id} block={b} col={layout[b.id]?.col ?? 0} cols={layout[b.id]?.cols ?? 1} />
             ))}
@@ -226,7 +214,7 @@ export default function PlanScreen() {
 
           {/* Now line */}
           {isToday ? (
-            <View pointerEvents="none" style={{ position: 'absolute', top: (nowMin / 60) * HOUR_H - 1, left: 0, right: 0, flexDirection: 'row', alignItems: 'center' }}>
+            <View pointerEvents="none" style={{ position: 'absolute', top: (nowMin / 60) * HOUR_H - 1, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', zIndex: 3 }}>
               <View style={{ width: GUTTER - 12, height: 18, borderRadius: 5, backgroundColor: accent, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontFamily: fonts.monoBold, fontSize: 10, color: onAccent }}>{fmtMin(nowMin)}</Text>
               </View>
@@ -236,59 +224,9 @@ export default function PlanScreen() {
           ) : null}
         </View>
 
-        {list.length === 0 ? (
-          <Animated.View entering={FadeIn} style={{ position: 'absolute', top: 40, left: 0, right: 0, alignItems: 'center' }} pointerEvents="none">
-            <View style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
-              <Txt variant="label">TAP ANY SLOT TO BLOCK TIME</Txt>
-            </View>
-          </Animated.View>
-        ) : null}
       </ScrollView>
 
-      <ActionSheet
-        visible={menu}
-        title={`PLAN · ${relativeLabel(day, today)}`}
-        onClose={() => setMenu(false)}
-        actions={[
-          {
-            label: "Copy yesterday's plan here",
-            icon: 'copy-outline',
-            onPress: () => {
-              const n = copyDay(addDays(day, -1), day);
-              flash(n ? `+${n} BLOCKS` : 'NOTHING TO COPY', n ? 'COPIED FROM YESTERDAY' : 'YESTERDAY WAS EMPTY');
-            },
-          },
-          {
-            label: 'Repeat this plan tomorrow',
-            icon: 'repeat-outline',
-            onPress: () => {
-              const n = copyDay(day, addDays(day, 1));
-              flash(n ? `+${n} BLOCKS` : 'NOTHING TO COPY', n ? 'COPIED TO TOMORROW' : 'ALREADY THERE');
-            },
-          },
-          {
-            label: 'Clear this day',
-            icon: 'trash-outline',
-            destructive: true,
-            onPress: () => (list.length ? confirmClear() : undefined),
-          },
-        ]}
-      />
     </Screen>
-  );
-}
-
-function Summary({ label, value, accent: hl }: { label: string; value: string; accent?: boolean }) {
-  const { accent } = useTheme();
-  return (
-    <View>
-      <Txt variant="label" style={{ fontSize: 9 }}>
-        {label}
-      </Txt>
-      <Txt variant="h2" color={hl ? accent : undefined} style={{ fontSize: 22, marginTop: 2 }}>
-        {value}
-      </Txt>
-    </View>
   );
 }
 
@@ -313,6 +251,8 @@ function BlockCard({ block, col, cols }: { block: Block; col: number; cols: numb
         paddingRight: 3,
       }}
     >
+      {/* opaque base so the hour lines don't show through the tinted card */}
+      <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 3, borderRadius: 10, backgroundColor: c.bg }} />
       <View
         style={{
           flex: 1,
@@ -322,21 +262,16 @@ function BlockCard({ block, col, cols }: { block: Block; col: number; cols: numb
           borderLeftWidth: 3,
           borderLeftColor: color,
           paddingLeft: 10,
-          paddingRight: 6,
+          paddingRight: 8,
           paddingVertical: roomy ? 7 : 3,
           overflow: 'hidden',
-          opacity: block.done ? 0.6 : 1,
         }}
       >
         <View style={{ flex: 1, justifyContent: roomy ? 'flex-start' : 'center' }}>
           <Txt
             variant="title"
             numberOfLines={roomy ? 2 : 1}
-            style={{
-              fontSize: 14,
-              lineHeight: 18,
-              textDecorationLine: block.done ? 'line-through' : 'none',
-            }}
+            style={{ fontSize: 14, lineHeight: 18 }}
           >
             {block.title || cat.label}
           </Txt>
@@ -346,24 +281,6 @@ function BlockCard({ block, col, cols }: { block: Block; col: number; cols: numb
             </Text>
           ) : null}
         </View>
-        <Pressable
-          hitSlop={10}
-          onPress={() => toggleBlock(block.id)}
-          style={{
-            width: 22,
-            height: 22,
-            borderRadius: 7,
-            marginTop: roomy ? 0 : 0,
-            alignSelf: roomy ? 'flex-start' : 'center',
-            borderWidth: 1.5,
-            borderColor: block.done ? color : alpha(color, 0.7),
-            backgroundColor: block.done ? color : 'transparent',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {block.done ? <Ionicons name="checkmark-sharp" size={14} color={c.bg} /> : null}
-        </Pressable>
       </View>
     </Press>
   );

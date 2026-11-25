@@ -12,7 +12,7 @@ import { haptic } from '@/lib/haptics';
 import { levelInfo } from '@/lib/xp';
 import { useAuth } from '@/store/auth';
 import { useData } from '@/store/data';
-import { activeDays, bestStreak, currentStreak, totalXp } from '@/store/selectors';
+import { activeDays, bestStreak, totalXp } from '@/store/selectors';
 import { useSettings } from '@/store/settings';
 import { signOut, syncNow, useSync } from '@/store/sync';
 import { ACCENT_KEYS, ACCENTS, alpha, fonts, useTheme, type ThemeMode } from '@/theme';
@@ -33,10 +33,8 @@ export default function SettingsScreen() {
     const days = activeDays(tasks, blocks, goals);
     return {
       xp: totalXp(tasks, blocks, goals),
-      missions: Object.values(tasks).filter((t) => t.done).length,
-      blocks: Object.values(blocks).filter((b) => b.done).length,
-      crushed: Object.values(goals).filter((g) => g.status === 'achieved' && !g.deleted).length,
-      streak: currentStreak(days, todayKey()),
+      tasks: Object.values(tasks).filter((t) => t.done).length,
+      goals: Object.values(goals).filter((g) => g.status === 'achieved' && !g.deleted).length,
       best: bestStreak(days),
     };
   }, [tasks, blocks, goals]);
@@ -69,7 +67,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bgElevated }}>
-      <SheetHeader kicker="PROFILE & SETTINGS" title="COMMAND" onClose={close} />
+      <SheetHeader kicker="SETTINGS" title="PROFILE" onClose={close} />
       <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: insets.bottom + 40, gap: 26 }}>
         {/* Profile */}
         <Card style={{ padding: 18 }}>
@@ -88,7 +86,7 @@ export default function SettingsScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Txt variant="h1" numberOfLines={1}>
-                {(settings.name || 'SOLDIER').toUpperCase()}
+                {(settings.name || 'YOUR NAME').toUpperCase()}
               </Txt>
               <Txt variant="label" numberOfLines={1} style={{ marginTop: 2 }}>
                 {session?.user.email ?? 'OFFLINE MODE'}
@@ -105,33 +103,21 @@ export default function SettingsScreen() {
             </Txt>
           </View>
           <ProgressBar value={lvl.progress} height={5} />
-          <Txt variant="label" style={{ marginTop: 8 }}>
-            {lvl.span - lvl.into} XP TO LVL {lvl.level + 1}
-          </Txt>
+          <View style={{ flexDirection: 'row', marginTop: 18 }}>
+            <Stat label="TASKS DONE" value={stats.tasks} />
+            <Stat label="BEST STREAK" value={`${stats.best}D`} />
+            <Stat label="GOALS" value={stats.goals} />
+          </View>
         </Card>
 
-        {/* Stats */}
         <View>
-          <Section label="SERVICE RECORD" style={{ marginBottom: 12 }} />
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            <StatTile label="MISSIONS DONE" value={stats.missions} icon="checkbox" />
-            <StatTile label="BLOCKS EXECUTED" value={stats.blocks} icon="time" />
-            <StatTile label="CURRENT STREAK" value={`${stats.streak}D`} icon="flame" />
-            <StatTile label="BEST STREAK" value={`${stats.best}D`} icon="medal" />
-            <StatTile label="GOALS CRUSHED" value={stats.crushed} icon="trophy" />
-            <StatTile label="TOTAL XP" value={stats.xp} icon="flash" />
-          </View>
-        </View>
-
-        {/* Callsign */}
-        <View>
-          <Section label="CALLSIGN" style={{ marginBottom: 12 }} />
+          <Section label="NAME" style={{ marginBottom: 12 }} />
           <Input
             value={name}
             onChangeText={setName}
             onEndEditing={() => settings.set({ name: name.trim() })}
             onBlur={() => settings.set({ name: name.trim() })}
-            placeholder="What should we call you?"
+            placeholder="Your name"
             autoCapitalize="words"
             returnKeyType="done"
           />
@@ -206,10 +192,8 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Feedback */}
         <View>
-          <Section label="FEEDBACK" style={{ marginBottom: 12 }} />
-          <Row icon="pulse" title="Haptics" sub="Feel every completed mission">
+          <Row icon="pulse" title="Vibration" sub="A buzz when you finish something">
             <Switch
               value={settings.haptics}
               onValueChange={(v) => {
@@ -224,7 +208,7 @@ export default function SettingsScreen() {
 
         {/* Sync */}
         <View>
-          <Section label="ACCOUNT & SYNC" style={{ marginBottom: 12 }} />
+          <Section label="ACCOUNT" style={{ marginBottom: 12 }} />
           {session ? (
             <Card style={{ gap: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -247,9 +231,9 @@ export default function SettingsScreen() {
                         : 'Backed up to the cloud'}
                 </Txt>
               </View>
-              <Txt variant="label">
-                LAST SYNC · {lastSync}
-                {dirtyCount ? ` · ${dirtyCount} PENDING` : ''}
+              <Txt variant="small" color={c.textDim}>
+                Last synced {lastSync.toLowerCase()}
+                {dirtyCount ? ` · ${dirtyCount} waiting` : ''}
               </Txt>
               {sync.status === 'error' && sync.error ? (
                 <Txt variant="small" color={c.danger}>
@@ -273,33 +257,18 @@ export default function SettingsScreen() {
         <Button label={session ? 'SIGN OUT' : 'EXIT OFFLINE MODE'} icon="log-out-outline" variant="danger" onPress={doSignOut} />
 
         <Txt variant="label" color={c.textFaint} style={{ textAlign: 'center' }}>
-          GRINDZONE v{Constants.expoConfig?.version ?? '1.0.0'} · STAY LOCKED IN
+          GRINDZONE v{Constants.expoConfig?.version ?? '1.0.0'}
         </Txt>
       </ScrollView>
     </View>
   );
 }
 
-function StatTile({ label, value, icon }: { label: string; value: number | string; icon: IconName }) {
-  const { c, accent } = useTheme();
+function Stat({ label, value }: { label: string; value: number | string }) {
   return (
-    <View
-      style={{
-        width: '48%',
-        flexGrow: 1,
-        padding: 12,
-        borderRadius: 14,
-        backgroundColor: c.surface,
-        borderWidth: 1,
-        borderColor: c.border,
-        gap: 6,
-      }}
-    >
-      <Ionicons name={icon} size={15} color={accent} />
-      <Txt variant="display" style={{ fontSize: 30, lineHeight: 31 }}>
-        {value}
-      </Txt>
-      <Txt variant="label" style={{ fontSize: 8.5, letterSpacing: 1.1 }} numberOfLines={1}>
+    <View style={{ flex: 1 }}>
+      <Txt variant="h2">{value}</Txt>
+      <Txt variant="label" style={{ fontSize: 9 }}>
         {label}
       </Txt>
     </View>
