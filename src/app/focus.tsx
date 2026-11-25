@@ -133,7 +133,7 @@ export default function FocusScreen() {
           </Txt>
         </View>
       </ScrollView>
-      <FxHost />
+      <FxHost inSheet />
     </View>
   );
 }
