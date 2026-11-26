@@ -6,8 +6,9 @@ import { Text, TextInput, View } from 'react-native';
 import { BLOCK_CATEGORIES, blockColor } from '@/lib/categories';
 import { fmtDuration, fmtMin } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
-import { parsePlanLine } from '@/lib/planParse';
-import { addPlanBlocks } from '@/store/actions';
+import { parsePlan, parsePlanLine } from '@/lib/planParse';
+import { useTapOrDoubleTap } from '@/lib/useDoubleTap';
+import { addPlanBlocks, toggleBlockDone } from '@/store/actions';
 import type { Block } from '@/store/data';
 import { useFx } from '@/store/fx';
 import { alpha, fonts, useTheme } from '@/theme';
@@ -16,8 +17,9 @@ import { Press, ProgressBar, Txt } from './ui';
 
 /**
  * The day as a written plan — one line per block, like a note:
- *   10:30 – 12:30   Wake up, skincare, eat, clean the room
- * with free time between blocks, a live "now" row, and a line at the bottom to type the next block.
+ *   10:30 – 12:30  Wake up, skincare, eat, clean the room          2H
+ * Tap to edit, double-tap to cross it off, hold for more. Free time sits between blocks, the current
+ * block shows how much is left, and the line at the bottom takes the next block (or a pasted plan).
  */
 export function PlanAgenda({
   day,
@@ -69,44 +71,55 @@ function AgendaRow({ block, isToday, nowMin }: { block: Block; isToday: boolean;
   const { c, accent } = useTheme();
   const col = blockColor(block.category, accent);
   const cat = BLOCK_CATEGORIES[block.category];
-  const isNow = isToday && block.start_min <= nowMin && nowMin < block.end_min;
+  const done = block.done;
+  const isNow = isToday && !done && block.start_min <= nowMin && nowMin < block.end_min;
   const past = isToday && block.end_min <= nowMin;
   const len = block.end_min - block.start_min;
+  const title = block.title || cat.label.charAt(0) + cat.label.slice(1).toLowerCase();
+  const strike = done ? ({ textDecorationLine: 'line-through', textDecorationColor: c.textDim } as const) : null;
+  const onPress = useTapOrDoubleTap(
+    () => router.push({ pathname: '/block/[id]', params: { id: block.id } }),
+    () => toggleBlockDone(block.id),
+  );
 
   return (
     <Press
       scaleTo={0.985}
-      onPress={() => router.push({ pathname: '/block/[id]', params: { id: block.id } })}
+      onPress={onPress}
       onLongPress={() => openBlockMenu(block, accent)}
       delayLongPress={300}
+      accessibilityHint="Double-tap to mark done, hold for more"
       style={{
         flexDirection: 'row',
         gap: 12,
-        paddingVertical: 13,
+        paddingVertical: 14,
         paddingHorizontal: 14,
         borderRadius: 14,
         backgroundColor: isNow ? alpha(col, 0.1) : c.surface,
         borderWidth: 1,
         borderColor: isNow ? alpha(col, 0.55) : c.border,
-        opacity: past ? 0.5 : 1,
+        opacity: done ? 0.5 : past ? 0.62 : 1,
       }}
     >
-      <View style={{ width: 4, borderRadius: 2, backgroundColor: col }} />
-      <View style={{ flex: 1, gap: 4 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={{ fontFamily: fonts.monoBold, fontSize: 15, letterSpacing: 0.5, color: c.text }}>
-            {fmtMin(block.start_min)} – {fmtMin(block.end_min)}
+      <View style={{ width: 4, borderRadius: 2, backgroundColor: done ? c.textFaint : col }} />
+      <View style={{ flex: 1, gap: 8, justifyContent: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {/* time and title on one line — the text shrinks to fit instead of wrapping */}
+          <Text style={{ flex: 1 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.45}>
+            <Text style={[{ fontFamily: fonts.monoBold, fontSize: 15, letterSpacing: 0.4, color: done ? c.textDim : c.text }, strike]}>
+              {fmtMin(block.start_min)} – {fmtMin(block.end_min)}
+            </Text>
+            <Text style={[{ fontFamily: fonts.semibold, fontSize: 16, color: done ? c.textDim : c.text }, strike]}>{'  '}{title}</Text>
           </Text>
-          {block.end_min > 1440 ? <Ionicons name="moon" size={11} color={c.textFaint} /> : null}
-          <View style={{ flex: 1 }} />
-          {past ? <Ionicons name="checkmark" size={14} color={c.textDim} /> : null}
+          {done ? (
+            <Ionicons name="checkmark-circle" size={17} color={accent} />
+          ) : block.end_min > 1440 ? (
+            <Ionicons name="moon" size={11} color={c.textFaint} />
+          ) : null}
           <Text style={{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: 0.8, color: c.textDim }}>{fmtDuration(len)}</Text>
         </View>
-        <Txt variant="title" style={{ fontSize: 16, lineHeight: 21 }}>
-          {block.title || cat.label.charAt(0) + cat.label.slice(1).toLowerCase()}
-        </Txt>
         {isNow ? (
-          <View style={{ gap: 6, marginTop: 4 }}>
+          <View style={{ gap: 6 }}>
             <Text style={{ fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.4, color: col }}>NOW · {fmtDuration(block.end_min - nowMin)} LEFT</Text>
             <ProgressBar value={(nowMin - block.start_min) / Math.max(1, len)} color={col} height={3} track={alpha(col, 0.18)} />
           </View>
@@ -127,13 +140,25 @@ function FreeRow({ minutes, onPress }: { minutes: number; onPress: () => void })
   );
 }
 
-/** Type a block the way you'd write it: "14:00 - 15:30 Gym". */
+/** Type a block the way you'd write it: "14:00 - 15:30 Gym". Pasting several lines adds them all. */
 function PlanLineInput({ day, list }: { day: string; list: Block[] }) {
   const { c, accent } = useTheme();
   const [text, setText] = useState('');
   const add = () => {
     const line = text.trim();
     if (!line) return;
+    if (line.includes('\n')) {
+      const { blocks } = parsePlan(line);
+      if (!blocks.length) {
+        haptic.warning();
+        useFx.getState().info('START EACH LINE WITH A TIME', 'Like “10:30 - 12:30 Wake up”.');
+        return;
+      }
+      addPlanBlocks(day, blocks);
+      useFx.getState().info('ADDED TO THE PLAN', `${blocks.length} ${blocks.length === 1 ? 'block' : 'blocks'}.`);
+      setText('');
+      return;
+    }
     // Read the time in the context of the day: after the last block if possible, else after the first.
     const last = list[list.length - 1]?.start_min ?? null;
     const first = list[0]?.start_min ?? null;
@@ -155,7 +180,7 @@ function PlanLineInput({ day, list }: { day: string; list: Block[] }) {
         gap: 10,
         marginTop: 4,
         paddingHorizontal: 14,
-        height: 52,
+        minHeight: 52,
         borderRadius: 14,
         borderWidth: 1,
         borderStyle: 'dashed',
@@ -174,8 +199,9 @@ function PlanLineInput({ day, list }: { day: string; list: Block[] }) {
         selectionColor={accent}
         returnKeyType="done"
         submitBehavior="submit"
+        multiline
         autoCorrect={false}
-        style={{ flex: 1, fontFamily: fonts.mono, fontSize: 15, color: c.text, height: '100%' }}
+        style={{ flex: 1, fontFamily: fonts.mono, fontSize: 15, color: c.text, paddingVertical: 14 }}
       />
     </View>
   );

@@ -6,7 +6,6 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { openBlockMenu } from '@/components/blockMenu';
 import { PlanAgenda } from '@/components/PlanAgenda';
-import { PlanImport } from '@/components/PlanImport';
 import { Button, IconBtn, Press, Screen, TAB_BAR_SPACE, Txt } from '@/components/ui';
 import { BLOCK_CATEGORIES, blockColor } from '@/lib/categories';
 import {
@@ -23,8 +22,9 @@ import {
   weekdayShort,
 } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
+import { useTapOrDoubleTap } from '@/lib/useDoubleTap';
 import { useNow } from '@/lib/useNow';
-import { copyDay } from '@/store/actions';
+import { copyDay, toggleBlockDone } from '@/store/actions';
 import { useData, type Block } from '@/store/data';
 import { useFx } from '@/store/fx';
 import { useSettings } from '@/store/settings';
@@ -41,7 +41,6 @@ export default function PlanScreen() {
   const blocks = useData((s) => s.blocks);
   const view = useSettings((s) => s.planView ?? 'list');
   const setSettings = useSettings((s) => s.set);
-  const [importing, setImporting] = useState(false);
   useNow(30000);
 
   const list = useMemo(() => blocksForDay(blocks, day), [blocks, day]);
@@ -203,12 +202,6 @@ export default function PlanScreen() {
           <Txt variant="small" color={c.textDim} style={{ flex: 1 }}>
             {list.length ? `${list.length} ${list.length === 1 ? 'block' : 'blocks'} · ${fmtDuration(totalMin).toLowerCase()} planned` : 'Nothing planned for this day yet.'}
           </Txt>
-          <Press onPress={() => setImporting(true)} tapHaptic hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-            <Ionicons name="document-text-outline" size={14} color={accent} />
-            <Txt variant="label" color={accent}>
-              WRITE PLAN
-            </Txt>
-          </Press>
         </View>
 
         {list.length === 0 ? (
@@ -218,10 +211,9 @@ export default function PlanScreen() {
           >
             <Txt variant="small" color={c.text}>
               {view === 'list'
-                ? 'Write your day like in your notes — “10:30 - 12:30 Wake up” — or paste a whole plan.'
+                ? 'Write your day line by line below, like in your notes: “10:30 - 12:30 Wake up, skincare”.'
                 : 'Tap any hour on the timeline below to add a block.'}
             </Txt>
-            <Button label="WRITE / PASTE A PLAN" icon="document-text-outline" small onPress={() => setImporting(true)} />
             {yesterdayCount ? (
               <Button label={`COPY YESTERDAY'S PLAN (${yesterdayCount})`} icon="copy-outline" variant="outline" small onPress={copyYesterday} />
             ) : null}
@@ -281,7 +273,6 @@ export default function PlanScreen() {
 
       </ScrollView>
       )}
-      {importing ? <PlanImport day={day} existing={list.length} onClose={() => setImporting(false)} /> : null}
     </Screen>
   );
 }
@@ -293,11 +284,15 @@ function BlockCard({ block, col, cols }: { block: Block; col: number; cols: numb
   const height = Math.max(26, ((block.end_min - block.start_min) / 60) * HOUR_H);
   const cat = BLOCK_CATEGORIES[block.category];
   const roomy = height >= 50;
+  const onPress = useTapOrDoubleTap(
+    () => router.push({ pathname: '/block/[id]', params: { id: block.id } }),
+    () => toggleBlockDone(block.id),
+  );
 
   return (
     <Press
       scaleTo={0.97}
-      onPress={() => router.push({ pathname: '/block/[id]', params: { id: block.id } })}
+      onPress={onPress}
       onLongPress={() => openBlockMenu(block, accent)}
       delayLongPress={300}
       style={{
@@ -307,6 +302,7 @@ function BlockCard({ block, col, cols }: { block: Block; col: number; cols: numb
         left: `${(col / cols) * 100}%`,
         width: `${100 / cols}%`,
         paddingRight: 3,
+        opacity: block.done ? 0.5 : 1,
       }}
     >
       {/* opaque base so the hour lines don't show through the tinted card */}
@@ -329,7 +325,7 @@ function BlockCard({ block, col, cols }: { block: Block; col: number; cols: numb
           <Txt
             variant="title"
             numberOfLines={roomy ? 2 : 1}
-            style={{ fontSize: 14, lineHeight: 18 }}
+            style={{ fontSize: 14, lineHeight: 18, textDecorationLine: block.done ? 'line-through' : 'none' }}
           >
             {block.title || cat.label}
           </Txt>

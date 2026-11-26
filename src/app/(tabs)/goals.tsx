@@ -39,11 +39,7 @@ export default function GoalsScreen() {
           }
         />
         {overall.total ? (
-          <HeaderBar
-            label="OVERALL"
-            value={overall.progress}
-            detail={`${overall.doneUnits} of ${overall.units} steps${overall.achieved ? ` · ${overall.achieved} achieved` : ''}`}
-          />
+          <HeaderBar label="OVERALL" value={overall.progress} />
         ) : null}
 
         {active.length === 0 ? (

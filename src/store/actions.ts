@@ -262,3 +262,16 @@ export function addPlanBlocks(date: string, list: { start: number; end: number; 
   );
   haptic.success();
 }
+
+/** Double-tap a block in the plan: crossed out = done. */
+export function toggleBlockDone(id: string) {
+  const s = useData.getState();
+  const b = s.blocks[id];
+  if (!b) return;
+  const done = !b.done;
+  s.patch('blocks', id, { done, done_at: done ? nowIso() : null });
+  if (done) {
+    haptic.success();
+    useFx.getState().cheer('BLOCK DONE');
+  } else haptic.light();
+}
