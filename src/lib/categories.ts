@@ -31,9 +31,9 @@ export type Priority = 1 | 2 | 3;
 
 /** Shown as an emoji on the right of every open task. */
 export const PRIORITIES: Record<Priority, { label: string; emoji: string }> = {
-  1: { label: 'HIGH', emoji: '🔥' },
-  2: { label: 'MEDIUM', emoji: '⚡' },
-  3: { label: 'LOW', emoji: '💤' },
+  1: { label: 'HIGH', emoji: '🔴' },
+  2: { label: 'MEDIUM', emoji: '🟠' },
+  3: { label: 'LOW', emoji: '🟢' },
 };
 
 /** Stored on goals for older data; no longer shown in the UI. */
