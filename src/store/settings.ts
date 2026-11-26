@@ -16,6 +16,8 @@ interface SettingsState {
   customMantra: string;
   /** Font size of the Today headline. */
   mantraSize: number;
+  /** How the Plan tab shows a day: a list like a written plan, or the hour timeline. */
+  planView: 'list' | 'timeline';
   hydrated: boolean;
   set: (patch: Partial<Omit<SettingsState, 'set' | 'hydrated'>>) => void;
 }
@@ -30,6 +32,7 @@ export const useSettings = create<SettingsState>()(
       guest: false,
       customMantra: '',
       mantraSize: 48,
+      planView: 'list',
       hydrated: false,
       set: (patch) => set(patch),
     }),

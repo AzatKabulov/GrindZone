@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View, type GestureResponderEvent, type ScrollViewInstance } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
+import { openBlockMenu } from '@/components/blockMenu';
+import { PlanAgenda } from '@/components/PlanAgenda';
+import { PlanImport } from '@/components/PlanImport';
 import { Button, IconBtn, Press, Screen, TAB_BAR_SPACE, Txt } from '@/components/ui';
 import { BLOCK_CATEGORIES, blockColor } from '@/lib/categories';
 import {
@@ -13,7 +16,6 @@ import {
   fmtMin,
   minutesNow,
   monthShort,
-  niceLabel,
   relativeLabel,
   startOfWeek,
   todayKey,
@@ -22,10 +24,10 @@ import {
 } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
 import { useNow } from '@/lib/useNow';
-import { copyDay, deleteBlock, duplicateBlock, shiftBlock } from '@/store/actions';
+import { copyDay } from '@/store/actions';
 import { useData, type Block } from '@/store/data';
 import { useFx } from '@/store/fx';
-import { useMenu } from '@/store/menu';
+import { useSettings } from '@/store/settings';
 import { alive, blocksForDay } from '@/store/selectors';
 import { alpha, fonts, useTheme } from '@/theme';
 
@@ -37,6 +39,9 @@ export default function PlanScreen() {
   const today = todayKey();
   const [day, setDay] = useState(today);
   const blocks = useData((s) => s.blocks);
+  const view = useSettings((s) => s.planView ?? 'list');
+  const setSettings = useSettings((s) => s.set);
+  const [importing, setImporting] = useState(false);
   useNow(30000);
 
   const list = useMemo(() => blocksForDay(blocks, day), [blocks, day]);
@@ -51,6 +56,7 @@ export default function PlanScreen() {
 
   const scrollRef = useRef<ScrollViewInstance>(null);
   useEffect(() => {
+    if (view !== 'timeline') return;
     const first = list[0]?.start_min ?? 7 * 60;
     const target = day === today ? minutesNow() - 100 : first - 40;
     const id = setTimeout(
@@ -58,9 +64,12 @@ export default function PlanScreen() {
       60,
     );
     return () => clearTimeout(id);
-    // only when the selected day changes
+    // only when the selected day (or the view) changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [day]);
+  }, [day, view]);
+
+  // The timeline grows past 24:00 when the plan runs after midnight.
+  const hours = Math.max(24, Math.ceil(Math.max(0, ...list.map((b) => b.end_min)) / 60));
 
   const newBlockAt = (start: number) => {
     haptic.light();
@@ -70,7 +79,7 @@ export default function PlanScreen() {
   const onGridPress = (e: GestureResponderEvent) => {
     const y = e.nativeEvent.locationY;
     const min = Math.floor(((y / HOUR_H) * 60) / 15) * 15;
-    newBlockAt(Math.max(0, Math.min(23 * 60 + 30, min)));
+    newBlockAt(Math.max(0, Math.min(hours * 60 - 30, min)));
   };
 
   const nextSlot = () => {
@@ -109,7 +118,28 @@ export default function PlanScreen() {
               <Text style={{ color: accent }}>.</Text>
             </Txt>
           </View>
-          <View style={{ marginBottom: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            {/* LIST ↔ TIMELINE */}
+            <View style={{ flexDirection: 'row', padding: 3, borderRadius: 13, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border }}>
+              {(
+                [
+                  { v: 'list', icon: 'list' },
+                  { v: 'timeline', icon: 'time-outline' },
+                ] as const
+              ).map((o) => (
+                <Pressable
+                  key={o.v}
+                  onPress={() => {
+                    haptic.tap();
+                    setSettings({ planView: o.v });
+                  }}
+                  accessibilityLabel={o.v === 'list' ? 'List view' : 'Timeline view'}
+                  style={{ width: 34, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: view === o.v ? c.surface : 'transparent' }}
+                >
+                  <Ionicons name={o.icon} size={17} color={view === o.v ? c.text : c.textFaint} />
+                </Pressable>
+              ))}
+            </View>
             <IconBtn icon="add" accentFill onPress={() => newBlockAt(nextSlot())} />
           </View>
         </View>
@@ -169,9 +199,17 @@ export default function PlanScreen() {
           </Pressable>
         </View>
 
-        <Txt variant="small" color={c.textDim} style={{ marginTop: 14, marginBottom: 6 }}>
-          {list.length ? `${list.length} ${list.length === 1 ? 'block' : 'blocks'} · ${fmtDuration(totalMin).toLowerCase()} planned` : 'Nothing planned for this day yet.'}
-        </Txt>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14, marginBottom: 6 }}>
+          <Txt variant="small" color={c.textDim} style={{ flex: 1 }}>
+            {list.length ? `${list.length} ${list.length === 1 ? 'block' : 'blocks'} · ${fmtDuration(totalMin).toLowerCase()} planned` : 'Nothing planned for this day yet.'}
+          </Txt>
+          <Press onPress={() => setImporting(true)} tapHaptic hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <Ionicons name="document-text-outline" size={14} color={accent} />
+            <Txt variant="label" color={accent}>
+              WRITE PLAN
+            </Txt>
+          </Press>
+        </View>
 
         {list.length === 0 ? (
           <Animated.View
@@ -179,8 +217,11 @@ export default function PlanScreen() {
             style={{ marginTop: 6, marginBottom: 8, padding: 14, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, gap: 10 }}
           >
             <Txt variant="small" color={c.text}>
-              Tap any hour on the timeline below to add a block.
+              {view === 'list'
+                ? 'Write your day like in your notes — “10:30 - 12:30 Wake up” — or paste a whole plan.'
+                : 'Tap any hour on the timeline below to add a block.'}
             </Txt>
+            <Button label="WRITE / PASTE A PLAN" icon="document-text-outline" small onPress={() => setImporting(true)} />
             {yesterdayCount ? (
               <Button label={`COPY YESTERDAY'S PLAN (${yesterdayCount})`} icon="copy-outline" variant="outline" small onPress={copyYesterday} />
             ) : null}
@@ -188,20 +229,32 @@ export default function PlanScreen() {
         ) : null}
       </View>
 
+      {view === 'list' ? (
+        <ScrollView
+          style={{ flex: 1, marginTop: 6, borderTopWidth: 1, borderTopColor: c.border }}
+          contentContainerStyle={{ padding: 16, paddingTop: 14, paddingBottom: TAB_BAR_SPACE }}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={false}
+        >
+          <PlanAgenda day={day} list={list} isToday={isToday} nowMin={nowMin} onNewAt={newBlockAt} />
+        </ScrollView>
+      ) : (
       <ScrollView
         ref={scrollRef}
         style={{ flex: 1, marginTop: 6, borderTopWidth: 1, borderTopColor: c.border }}
         contentContainerStyle={{ paddingTop: 14, paddingBottom: TAB_BAR_SPACE }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ height: 24 * HOUR_H, marginHorizontal: 16 }}>
+        <View style={{ height: hours * HOUR_H, marginHorizontal: 16 }}>
           {/* Hour grid */}
-          {Array.from({ length: 25 }, (_, h) => (
+          {Array.from({ length: hours + 1 }, (_, h) => (
             <View key={h} pointerEvents="none" style={{ position: 'absolute', top: h * HOUR_H, left: 0, right: 0, flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ width: GUTTER - 10, fontFamily: fonts.mono, fontSize: 10.5, color: c.textFaint, marginTop: -1 }}>
-                {h < 24 ? fmtMin(h * 60) : ''}
+                {h < hours ? fmtMin(h * 60) : ''}
               </Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: h < 24 ? c.border : 'transparent' }} />
+              <View style={{ flex: 1, height: 1, backgroundColor: h < hours ? (h === 24 ? c.borderStrong : c.border) : 'transparent' }} />
             </View>
           ))}
           {/* Tap area to create */}
@@ -227,7 +280,8 @@ export default function PlanScreen() {
         </View>
 
       </ScrollView>
-
+      )}
+      {importing ? <PlanImport day={day} existing={list.length} onClose={() => setImporting(false)} /> : null}
     </Screen>
   );
 }
@@ -240,29 +294,11 @@ function BlockCard({ block, col, cols }: { block: Block; col: number; cols: numb
   const cat = BLOCK_CATEGORIES[block.category];
   const roomy = height >= 50;
 
-  // Press and hold: edit, duplicate, move or delete without opening the block.
-  const openMenu = () => {
-    haptic.medium();
-    const day = niceLabel(block.date);
-    useMenu.getState().open({
-      kicker: `${day.toUpperCase()} · ${fmtMin(block.start_min)}–${fmtMin(block.end_min)}`,
-      title: block.title || cat.label,
-      subtitle: `${cat.label.charAt(0)}${cat.label.slice(1).toLowerCase()} · ${fmtDuration(block.end_min - block.start_min).toLowerCase()}${block.note ? ` · ${block.note}` : ''}`,
-      color,
-      actions: [
-        { label: 'Edit', icon: 'create-outline', run: () => router.push({ pathname: '/block/[id]', params: { id: block.id } }) },
-        { label: 'Move 30 min later', icon: 'arrow-down-outline', run: () => shiftBlock(block.id, 30) },
-        { label: 'Duplicate to tomorrow', icon: 'copy-outline', run: () => duplicateBlock(block.id, addDays(block.date, 1)) },
-        { label: 'Delete', icon: 'trash-outline', danger: true, run: () => deleteBlock(block.id) },
-      ],
-    });
-  };
-
   return (
     <Press
       scaleTo={0.97}
       onPress={() => router.push({ pathname: '/block/[id]', params: { id: block.id } })}
-      onLongPress={openMenu}
+      onLongPress={() => openBlockMenu(block, accent)}
       delayLongPress={300}
       style={{
         position: 'absolute',

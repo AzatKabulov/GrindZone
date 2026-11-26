@@ -1,19 +1,21 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Platform, ScrollView, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmojiButton } from '@/components/EmojiPicker';
 import { FxHost } from '@/components/FxHost';
-import { Heatmap } from '@/components/Heatmap';
+import { MonthGrid, MonthHeader, shiftMonth, useCellSize } from '@/components/MonthCalendar';
 import { SheetHeader } from '@/components/pickers';
 import { Button, Card, Txt } from '@/components/ui';
-import { todayKey } from '@/lib/date';
+import { addDays, parseKey, todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
 import { toggleHabit } from '@/store/actions';
 import { useData } from '@/store/data';
+import { habitRate, habitStart } from '@/store/habitStats';
 import { habitBest, habitStreak } from '@/store/selectors';
-import { fonts, useTheme } from '@/theme';
+import { alpha, fonts, useTheme } from '@/theme';
 
 /** Create a habit, or see its history (tap any past day to fix it) and edit it. */
 export default function HabitScreen() {
@@ -21,9 +23,11 @@ export default function HabitScreen() {
   const isNew = params.id === 'new';
   const habit = useData((s) => (isNew ? undefined : s.habits[params.id]));
   const { create, patch, remove } = useData.getState();
-  const { c, accent } = useTheme();
+  const { c, accent, onAccent } = useTheme();
   const insets = useSafeAreaInsets();
 
+  const [month, setMonth] = useState(() => todayKey().slice(0, 7));
+  const size = useCellSize(76);
   const [title, setTitle] = useState(habit?.title ?? '');
   const [emoji, setEmoji] = useState(habit?.emoji ?? '');
   const dirty = !!habit && (title.trim() !== habit.title || emoji !== habit.emoji);
@@ -60,7 +64,10 @@ export default function HabitScreen() {
   }
 
   const today = todayKey();
-  const counts = Object.fromEntries((habit?.checks ?? []).map((d) => [d, 1]));
+  const checks = new Set(habit?.checks ?? []);
+  const start = habit ? habitStart(habit) : today;
+  const monthEnd = addDays(`${shiftMonth(month, 1)}-01`, -1);
+  const monthRate = habit ? habitRate(habit, `${month}-01`, monthEnd, today) : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bgElevated }}>
@@ -89,7 +96,52 @@ export default function HabitScreen() {
                 <Stat label="BEST" value={`${habitBest(habit)}D`} />
                 <Stat label="TOTAL" value={String(habit.checks?.length ?? 0)} />
               </View>
-              <Heatmap counts={counts} weeks={18} binary legend={false} onPressDay={(d) => toggleHabit(habit.id, d)} />
+              <MonthHeader month={month} onShift={(n) => setMonth(shiftMonth(month, n))} canNext={month < today.slice(0, 7)} />
+              <MonthGrid
+                month={month}
+                size={size}
+                renderDay={(d) => {
+                  const done = checks.has(d);
+                  const future = d > today;
+                  const counted = d >= start && !future;
+                  return (
+                    <Pressable
+                      disabled={future}
+                      onPress={() => toggleHabit(habit.id, d)}
+                      accessibilityLabel={`${d}: ${done ? 'done' : 'not done'}`}
+                      style={{
+                        width: size,
+                        height: size,
+                        borderRadius: 10,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: done ? accent : counted ? c.surface2 : 'transparent',
+                        borderWidth: d === today ? 1.5 : counted || done ? 0 : 1,
+                        borderColor: d === today ? c.text : alpha(c.border, 0.8),
+                        opacity: future ? 0.35 : 1,
+                      }}
+                    >
+                      <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: done ? onAccent : counted ? c.text : c.textFaint }}>
+                        {parseKey(d).getDate()}
+                      </Text>
+                      {done ? <Ionicons name="checkmark-sharp" size={11} color={onAccent} style={{ marginTop: -1 }} /> : null}
+                    </Pressable>
+                  );
+                }}
+              />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: accent }} />
+                  <Txt variant="small" color={c.textDim}>Done</Txt>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: c.surface2 }} />
+                  <Txt variant="small" color={c.textDim}>Missed</Txt>
+                </View>
+                <Txt variant="small" color={c.textFaint} style={{ flex: 1, textAlign: 'right' }}>
+                  {monthRate && monthRate.possible ? `${monthRate.done}/${monthRate.possible} days · ${Math.round((monthRate.rate ?? 0) * 100)}%` : ''}
+                </Txt>
+              </View>
               <Txt variant="small" color={c.textFaint}>
                 Tap a day to mark it done or not done.
               </Txt>

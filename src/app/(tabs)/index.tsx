@@ -15,7 +15,7 @@ import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { TaskRow } from '@/components/TaskRow';
 import { Button, Card, IconBtn, Press, ProgressBar, Screen, Section, TAB_BAR_SPACE, Txt } from '@/components/ui';
 import { BLOCK_CATEGORIES, blockColor } from '@/lib/categories';
-import { dayNum, fmtDuration, fmtMin, minutesNow, monthShort, todayKey, weekday } from '@/lib/date';
+import { addDays, dayNum, fmtDuration, fmtMin, minutesNow, monthShort, todayKey, weekday } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
 import { mantraOfTheDay } from '@/lib/quotes';
 import { useNow } from '@/lib/useNow';
@@ -54,7 +54,13 @@ export default function TodayScreen() {
     const day = tasksForDay(tasks, today);
     return {
       ...day,
-      dayBlocks: blocksForDay(blocks, today),
+      // Yesterday's plan may run past midnight (e.g. 00:30–02:00 Sleep): it's "now" for tonight.
+      dayBlocks: [
+        ...blocksForDay(blocks, addDays(today, -1))
+          .filter((b) => b.end_min > 1440)
+          .map((b) => ({ ...b, start_min: b.start_min - 1440, end_min: b.end_min - 1440 })),
+        ...blocksForDay(blocks, today),
+      ],
       streak: currentStreak(activeDays(tasks, goals, habits, focusHistory), today),
       activity: activityByDay({ tasks, blocks, notes, habits, goals, focus: focusHistory }),
     };
