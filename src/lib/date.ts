@@ -97,8 +97,12 @@ export function minutesNow(): number {
 }
 
 /** 450 -> '07:30' */
+/** Latest a day's plan can run: 06:00 the next morning (minutes since the day's midnight). */
+export const PLAN_DAY_END = 1440 + 360;
+
+/** 450 -> '07:30'. Times after midnight wrap: 1470 -> '00:30'. */
 export function fmtMin(min: number): string {
-  const m = Math.max(0, Math.min(1440, Math.round(min)));
+  const m = ((Math.round(min) % 1440) + 1440) % 1440;
   return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
 }
 

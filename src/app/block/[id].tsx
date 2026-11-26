@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FieldLabel, SheetHeader, TimeField } from '@/components/pickers';
 import { Button, Chip, Input, Txt } from '@/components/ui';
 import { BLOCK_CATEGORIES, BLOCK_CATEGORY_KEYS, blockColor, type BlockCategory } from '@/lib/categories';
-import { fmtDuration, fmtMin, todayKey } from '@/lib/date';
+import { fmtDuration, fmtMin, PLAN_DAY_END, todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
 import { useData } from '@/store/data';
 import { fonts, useTheme } from '@/theme';
@@ -24,12 +24,14 @@ export default function BlockEditor() {
 
   const [title, setTitle] = useState(existing?.title ?? '');
   const [category, setCategory] = useState<BlockCategory>(existing?.category ?? 'deep');
-  const [start, setStart] = useState(existing?.start_min ?? Math.max(0, Math.min(1410, Number(params.start ?? 540) || 540)));
+  const [start, setStart] = useState(existing?.start_min ?? Math.max(0, Math.min(PLAN_DAY_END - 30, Number(params.start ?? 540) || 540)));
   const [length, setLength] = useState(existing ? Math.max(15, existing.end_min - existing.start_min) : 60);
   const [note, setNote] = useState(existing?.note ?? '');
 
   const date = existing?.date ?? params.date ?? todayKey();
-  const end = Math.min(1440, start + length);
+  // A day's plan can run past midnight (until 06:00): those times are stored as 24:00+.
+  const end = Math.min(PLAN_DAY_END, start + length);
+  const late = start >= 1440;
   const color = blockColor(category, accent);
   const kinds = BLOCK_CATEGORY_KEYS.includes(category) ? BLOCK_CATEGORY_KEYS : [...BLOCK_CATEGORY_KEYS, category];
   const close = () => (router.canGoBack() ? router.back() : router.replace('/plan'));
@@ -101,14 +103,26 @@ export default function BlockEditor() {
 
         <View style={{ gap: 12 }}>
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <TimeField label="STARTS" value={start} onChange={setStart} max={1425} />
+            <TimeField label="STARTS" value={start % 1440} onChange={(v) => setStart(late ? v + 1440 : v)} max={1425} />
             <TimeField
               label="ENDS"
-              value={end}
-              onChange={(v) => setLength(Math.max(5, (v <= start ? v + 1440 : v) - start))}
+              value={end % 1440}
+              onChange={(v) => {
+                let e = v + Math.floor(start / 1440) * 1440;
+                if (e <= start) e += 1440;
+                setLength(Math.max(5, Math.min(PLAN_DAY_END, e) - start));
+              }}
               max={1439}
             />
           </View>
+          {start % 1440 < 360 ? (
+            <Chip
+              label={late ? 'AFTER MIDNIGHT · END OF THIS DAY' : 'EARLY MORNING · START OF THIS DAY'}
+              icon={late ? 'moon' : 'sunny-outline'}
+              active={late}
+              onPress={() => setStart(late ? start - 1440 : start + 1440)}
+            />
+          ) : null}
           <View>
             <FieldLabel>OR PICK A LENGTH</FieldLabel>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -118,7 +132,8 @@ export default function BlockEditor() {
             </View>
           </View>
           <Txt variant="small" color={c.textDim}>
-            {fmtMin(start)} → {fmtMin(end)} · {fmtDuration(end - start).toLowerCase()}
+            {fmtMin(start)} → {fmtMin(end)}
+            {end > 1440 ? ' (next morning)' : ''} · {fmtDuration(end - start).toLowerCase()}
           </Txt>
         </View>
 

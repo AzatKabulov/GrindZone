@@ -1,4 +1,4 @@
-import { nowIso, todayKey } from '@/lib/date';
+import { nowIso, PLAN_DAY_END, todayKey } from '@/lib/date';
 import { haptic } from '@/lib/haptics';
 import { uuid, useData, type Block, type GoalStep, type Subtask, type Task } from './data';
 import { useFx } from './fx';
@@ -247,7 +247,18 @@ export function shiftBlock(id: string, minutes: number) {
   const b = s.blocks[id];
   if (!b) return;
   const len = b.end_min - b.start_min;
-  const start = Math.max(0, Math.min(1440 - len, b.start_min + minutes));
+  const start = Math.max(0, Math.min(PLAN_DAY_END - len, b.start_min + minutes));
   s.patch('blocks', id, { start_min: start, end_min: start + len });
   haptic.light();
+}
+
+/** Add the blocks of a typed/pasted plan to a day (optionally replacing what's there). */
+export function addPlanBlocks(date: string, list: { start: number; end: number; title: string; category: Block['category'] }[], replace = false) {
+  const s = useData.getState();
+  if (replace) for (const b of blocksForDay(s.blocks, date)) s.remove('blocks', b.id);
+  s.createMany(
+    'blocks',
+    list.map((b): Partial<Block> => ({ date, start_min: b.start, end_min: b.end, title: b.title, category: b.category, note: '' })),
+  );
+  haptic.success();
 }

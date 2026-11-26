@@ -1,18 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MonthGrid, MonthHeader, monthCells, shiftMonth, useCellSize } from '@/components/MonthCalendar';
 import { SheetHeader } from '@/components/pickers';
-import { Card, IconBtn, Section, Txt } from '@/components/ui';
-import { dateKey, fmtMin, isoToKey, monthLong, niceLabel, parseKey, todayKey, weekday } from '@/lib/date';
+import { Card, Section, Txt } from '@/components/ui';
+import { fmtMin, isoToKey, niceLabel, parseKey, todayKey, weekday } from '@/lib/date';
 import { LEVEL_LABELS, LEVEL_RANGES, levelColor, levelOf, onLevel } from '@/lib/productivity';
 import { useData, type Task } from '@/store/data';
 import { alive, dayRatio, taskDays, type DayTasks } from '@/store/selectors';
 import { fonts, useTheme } from '@/theme';
-
-const GAP = 6;
 
 /**
  * Task history: a month calendar where every day is coloured by how much of that day's list got done
@@ -21,7 +20,6 @@ const GAP = 6;
 export default function HistoryScreen() {
   const { c, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
   const tasks = useData((s) => s.tasks);
   const today = todayKey();
   const [month, setMonth] = useState(() => today.slice(0, 7)); // YYYY-MM
@@ -34,13 +32,8 @@ export default function HistoryScreen() {
     return out;
   }, [tasks, today]);
 
-  const [y, m] = month.split('-').map(Number);
-  const first = new Date(y, m - 1, 1);
-  const lead = (first.getDay() + 6) % 7; // Monday first
-  const count = new Date(y, m, 0).getDate();
-  const cells: (string | null)[] = [...Array(lead).fill(null), ...Array.from({ length: count }, (_, i) => dateKey(new Date(y, m - 1, i + 1)))];
-  while (cells.length % 7) cells.push(null);
-  const size = Math.floor((Math.min(width, 520) - 40 - GAP * 6) / 7);
+  const cells = monthCells(month);
+  const size = useCellSize();
 
   // Month summary
   let mDone = 0;
@@ -54,10 +47,6 @@ export default function HistoryScreen() {
     if (d.missed.length === 0 && d.done.length) perfect++;
   }
 
-  const shift = (n: number) => {
-    const d = new Date(y, m - 1 + n, 1);
-    setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-  };
   const isCurrent = month === today.slice(0, 7);
   const close = () => (router.canGoBack() ? router.back() : router.replace('/tasks'));
 
@@ -65,42 +54,24 @@ export default function HistoryScreen() {
     <View style={{ flex: 1, backgroundColor: c.bgElevated }}>
       <SheetHeader kicker="TASKS" title="HISTORY" onClose={close} />
       <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 4, paddingBottom: insets.bottom + 40, gap: 18 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <IconBtn icon="chevron-back" size={36} onPress={() => shift(-1)} />
-          <Txt variant="h2" style={{ flex: 1, textAlign: 'center' }}>
-            {monthLong(first).toUpperCase()} {y}
-          </Txt>
-          <IconBtn icon="chevron-forward" size={36} onPress={() => shift(1)} disabled={isCurrent} />
-        </View>
+        <MonthHeader month={month} onShift={(n) => setMonth(shiftMonth(month, n))} canNext={!isCurrent} />
 
-        <View>
-          <View style={{ flexDirection: 'row', gap: GAP, marginBottom: 8 }}>
-            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-              <Txt key={i} variant="label" style={{ width: size, textAlign: 'center', fontSize: 9 }}>
-                {d}
-              </Txt>
-            ))}
-          </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GAP }}>
-            {cells.map((k, i) =>
-              k ? (
-                <DayCell
-                  key={k}
-                  day={k}
-                  size={size}
-                  stats={k <= today ? days[k] : undefined}
-                  plannedCount={k > today ? (planned[k]?.length ?? 0) : 0}
-                  isToday={k === today}
-                  selected={k === selected}
-                  onPress={() => setSelected(k)}
-                  isDark={isDark}
-                />
-              ) : (
-                <View key={`pad${i}`} style={{ width: size, height: size }} />
-              ),
-            )}
-          </View>
-        </View>
+        <MonthGrid
+          month={month}
+          size={size}
+          renderDay={(k) => (
+            <DayCell
+              day={k}
+              size={size}
+              stats={k <= today ? days[k] : undefined}
+              plannedCount={k > today ? (planned[k]?.length ?? 0) : 0}
+              isToday={k === today}
+              selected={k === selected}
+              onPress={() => setSelected(k)}
+              isDark={isDark}
+            />
+          )}
+        />
 
         {/* Legend: colour + range, so the colours are never the only cue */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
