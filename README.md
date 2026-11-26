@@ -41,7 +41,7 @@ Most productivity apps split the day across separate tools: one for to-dos, one 
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/today.png" width="200" alt="Today" /><br /><sub><b>Today</b>: progress, streak, activity map</sub></td>
+    <td align="center"><img src="docs/screenshots/today.png" width="200" alt="Today" /><br /><sub><b>Today</b>: the day at a glance, habits, tasks</sub></td>
     <td align="center"><img src="docs/screenshots/tasks.png" width="200" alt="Tasks" /><br /><sub><b>Tasks</b>: overdue, today, upcoming</sub></td>
     <td align="center"><img src="docs/screenshots/plan.png" width="200" alt="Plan" /><br /><sub><b>Plan</b>: your day as a written plan, or a timeline</sub></td>
     <td align="center"><img src="docs/screenshots/habits.png" width="200" alt="Habits" /><br /><sub><b>Habits</b>: one-tap check-in and streaks</sub></td>
@@ -76,7 +76,7 @@ Most productivity apps split the day across separate tools: one for to-dos, one 
 
 | Area | What it does |
 |---|---|
-| **Today** | Your line for the day (tap to write your own and pick its size, or get a new one each day), a progress ring, a streak counter, a **GitHub-style activity heatmap**, a "now / next" schedule card with a live progress bar, and today's tasks with quick add. |
+| **Today** | Your line for the day (tap to write your own and pick its size, or get a new one each day), one card with how the day is going (tasks ring, streak, focus time, plan time left, goals %), a "now / then" card from your plan with a live progress bar, **today's habits as chips you tick right there**, and today's tasks with quick add. |
 | **Weekly Wrap** | Your week as a story, Spotify Wrapped style: tasks closed, your best day on a **3D bar chart**, habit consistency, deep-work sessions, where your planned time went on a **3D donut**, your "persona" (morning grinder, night owl…), streak, and a **weekly score** with a table comparing every stat to the week before (or the same days last week while the week is still going). |
 | **Tasks** | One list grouped into Overdue, Today, Upcoming and Someday, with **today's productivity** as a bar in the header that turns from red through orange to green as you get closer to 100%. Each task can have an **emoji**, a **priority** shown as an emoji on the right (🔴 high · 🟠 medium · 🟢 low), a due date, notes and a **checklist of steps**. **Swipe left** on a task to delete it (a long swipe deletes straight away; a toast lets you undo). |
 | **Task history** | A month calendar where every day is coloured by how much of that day's list got done (red → amber → light green → green) and shows done/total. Tap a day to see what you finished and what you missed. |
@@ -87,7 +87,7 @@ Most productivity apps split the day across separate tools: one for to-dos, one 
 | **Goals** | A title, a "why", a deadline and its own **checklist of steps** (steps are not tasks). An overall progress bar counts progress in steps across all goals. Achieving a goal triggers a full-screen celebration, and the **trophy history** lists every achieved goal with how long it took and whether it beat the deadline. |
 | **Focus** | Pomodoro with 15 / 25 / 45 / 60-minute sessions and 5 / 10 / 15-minute breaks, plus pause, reset and skip. The timer survives the app being backgrounded or the phone being locked, and **local notifications** fire when a session or break ends. It can be linked to a task. |
 | **Notes** | A full-page notes list with pinning, autosave and search. |
-| **Profile** | Lifetime stats (tasks done, best streak, focus sessions, goals achieved), a 6-month activity map, System / Dark / Light theme, 5 accent colours, a haptics toggle and account management. |
+| **Profile** | Lifetime stats (tasks done, best streak, focus sessions, goals achieved), a **GitHub-style 6-month activity map**, System / Dark / Light theme, 5 accent colours, a haptics toggle and account management. |
 
 ## Tech stack
 
