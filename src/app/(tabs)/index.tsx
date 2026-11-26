@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PulseDot } from '@/components/bits';
 import { FocusPill } from '@/components/FocusEngine';
-import { Heatmap } from '@/components/Heatmap';
 import { DoneToggle, QuickAdd } from '@/components/ListBits';
 import { ProgressRing } from '@/components/ProgressRing';
 import { ReorderableTasks } from '@/components/ReorderableTasks';
@@ -19,27 +18,30 @@ import { addDays, dayNum, fmtDuration, fmtMin, minutesNow, monthShort, todayKey,
 import { haptic } from '@/lib/haptics';
 import { mantraOfTheDay } from '@/lib/quotes';
 import { useNow } from '@/lib/useNow';
-import { useData, type Block } from '@/store/data';
+import { toggleHabit } from '@/store/actions';
+import { useData, type Block, type Habit } from '@/store/data';
 import { closeSwipes, useDrag } from '@/store/drag';
 import { useFocus } from '@/store/focus';
-import { activeDays, activityByDay, blockNow, blocksForDay, currentStreak, tasksForDay } from '@/store/selectors';
+import { activeDays, alive, blockNow, blocksForDay, currentStreak, goalsProgress, tasksForDay } from '@/store/selectors';
 import { useSettings } from '@/store/settings';
 import { useSync } from '@/store/sync';
 import { alpha, fonts, useTheme } from '@/theme';
 
 /**
  * Today = one question: what do I do today?
- * Your line for the day, progress, your activity history, what's on the schedule, and today's tasks.
+ * Your line for the day, one card with how the day is going (tasks, streak, focus, plan time left,
+ * goals), what's on the schedule now and next, today's habits to tick off, and today's tasks.
+ * (The long-term activity map lives in Profile.)
  */
 export default function TodayScreen() {
   const { c, accent } = useTheme();
   const tasks = useData((s) => s.tasks);
   const blocks = useData((s) => s.blocks);
   const goals = useData((s) => s.goals);
-  const notes = useData((s) => s.notes);
   const habits = useData((s) => s.habits);
   const create = useData((s) => s.create);
   const focusHistory = useFocus((s) => s.history);
+  const focusMin = useFocus((s) => s.focusMin);
   const customMantra = useSettings((s) => s.customMantra);
   const mantraSize = useSettings((s) => s.mantraSize ?? 48);
   const syncError = useSync((s) => s.status === 'error');
@@ -50,7 +52,7 @@ export default function TodayScreen() {
 
   const today = todayKey();
   const nowMin = minutesNow();
-  const { open, done, dayBlocks, streak, activity } = useMemo(() => {
+  const { open, done, dayBlocks, streak, goalsPct, habitList } = useMemo(() => {
     const day = tasksForDay(tasks, today);
     return {
       ...day,
@@ -60,16 +62,19 @@ export default function TodayScreen() {
           .filter((b) => b.end_min > 1440)
           .map((b) => ({ ...b, start_min: b.start_min - 1440, end_min: b.end_min - 1440 })),
         ...blocksForDay(blocks, today),
-      ],
+      ].filter((b) => !b.done),
       streak: currentStreak(activeDays(tasks, goals, habits, focusHistory), today),
-      activity: activityByDay({ tasks, blocks, notes, habits, goals, focus: focusHistory }),
+      goalsPct: goalsProgress(goals),
+      habitList: alive(habits).sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at)),
     };
-  }, [tasks, blocks, goals, notes, habits, focusHistory, today]);
+  }, [tasks, blocks, goals, habits, focusHistory, today]);
 
   const total = open.length + done.length;
   const { current, upcoming } = blockNow(dayBlocks, nowMin);
   const headline = total === 0 ? 'NO TASKS YET' : open.length === 0 ? 'ALL DONE' : `${open.length} TO GO`;
-  const activeDaysCount = Object.values(activity).filter((n) => n > 0).length;
+  const focusToday = focusHistory[today] ?? 0;
+  // Time still planned for today: what's left of the blocks you haven't crossed off.
+  const planLeft = dayBlocks.reduce((acc, b) => acc + Math.max(0, b.end_min - Math.max(b.start_min, nowMin)), 0);
   const mantra = customMantra.trim() || mantraOfTheDay();
 
   return (
@@ -109,42 +114,57 @@ export default function TodayScreen() {
             </Press>
           </Animated.View>
 
-          {/* Progress at a glance */}
+          {/* The day at a glance */}
           <Animated.View entering={FadeInDown.delay(70).duration(450)}>
-            <Card style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-              <ProgressRing value={total ? done.length / total : 0} size={78} stroke={8}>
-                <Txt variant="h2" style={{ marginTop: 3 }}>
-                  {done.length}/{total}
-                </Txt>
-              </ProgressRing>
-              <View style={{ flex: 1, gap: 6 }}>
-                <Txt variant="h2">{headline}</Txt>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  <Ionicons name="flame" size={14} color={streak ? accent : c.textFaint} />
-                  <Txt variant="small" color={streak ? c.text : c.textDim}>
-                    {streak ? `${streak}-day streak` : 'Finish something to start a streak'}
+            <Card style={{ marginTop: 18, gap: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                <ProgressRing value={total ? done.length / total : 0} size={74} stroke={8}>
+                  <Txt variant="h2" style={{ marginTop: 3 }}>
+                    {done.length}/{total}
                   </Txt>
+                </ProgressRing>
+                <View style={{ flex: 1, gap: 6 }}>
+                  <Txt variant="h2">{headline}</Txt>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <Ionicons name="flame" size={14} color={streak ? accent : c.textFaint} />
+                    <Txt variant="small" color={streak ? c.text : c.textDim}>
+                      {streak ? `${streak}-day streak` : 'Finish something to start a streak'}
+                    </Txt>
+                  </View>
                 </View>
               </View>
-            </Card>
-          </Animated.View>
-
-          {/* Activity history, GitHub-style */}
-          <Animated.View entering={FadeInDown.delay(120).duration(450)}>
-            <Card style={{ marginTop: 12, gap: 10 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                <Txt variant="label" color={c.text} style={{ flex: 1 }}>
-                  ACTIVITY
-                </Txt>
-                <Txt variant="label">{activeDaysCount} ACTIVE DAYS</Txt>
+              <View style={{ height: 1, backgroundColor: c.border }} />
+              <View style={{ flexDirection: 'row' }}>
+                <MiniStat
+                  icon="timer-outline"
+                  value={focusToday ? fmtDuration(focusToday * focusMin).toLowerCase() : '—'}
+                  label={focusToday ? `FOCUS · ${focusToday}×` : 'FOCUS'}
+                  onPress={() => router.push('/focus')}
+                />
+                <MiniStat
+                  icon="time-outline"
+                  value={planLeft ? fmtDuration(planLeft).toLowerCase() : '—'}
+                  label="PLAN LEFT"
+                  onPress={() => router.navigate('/plan')}
+                />
+                <MiniStat
+                  icon="trophy-outline"
+                  value={goalsPct.total ? `${Math.round(goalsPct.progress * 100)}%` : '—'}
+                  label="GOALS"
+                  onPress={() => router.navigate('/goals')}
+                />
               </View>
-              <Heatmap counts={activity} weeks={17} />
             </Card>
           </Animated.View>
 
           <FocusPill />
 
-          {current || upcoming[0] ? <ScheduleLine block={current ?? upcoming[0]} isNow={!!current} nowMin={nowMin} /> : null}
+          {current || upcoming[0] ? (
+            <ScheduleLine block={current ?? upcoming[0]} isNow={!!current} nowMin={nowMin} next={current ? upcoming[0] : upcoming[1]} />
+          ) : null}
+
+          {/* Today's habits: tick them off right here */}
+          {habitList.length ? <HabitStrip habits={habitList} today={today} /> : null}
 
           {/* Today's tasks */}
           <Section label="TODAY'S TASKS" count={`${done.length}/${total}`} style={{ marginTop: 26, marginBottom: 12 }} />
@@ -176,8 +196,8 @@ export default function TodayScreen() {
   );
 }
 
-/** One line: what you should be doing now (or what's next). Tap to open the plan. */
-function ScheduleLine({ block, isNow, nowMin }: { block: Block; isNow: boolean; nowMin: number }) {
+/** What you should be doing now (or what's next), and what comes after it. Tap to open the plan. */
+function ScheduleLine({ block, isNow, nowMin, next }: { block: Block; isNow: boolean; nowMin: number; next?: Block }) {
   const { c, accent } = useTheme();
   const col = blockColor(block.category, accent);
   const title = block.title || BLOCK_CATEGORIES[block.category].label;
@@ -208,7 +228,78 @@ function ScheduleLine({ block, isNow, nowMin }: { block: Block; isNow: boolean; 
         <Ionicons name="chevron-forward" size={16} color={c.textFaint} />
       </View>
       {isNow ? <ProgressBar value={progress} color={col} height={3} track={alpha(col, 0.18)} style={{ marginTop: 12 }} /> : null}
+      {next ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: blockColor(next.category, accent) }} />
+          <Txt variant="small" color={c.textDim} numberOfLines={1} style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1 }}>THEN {fmtMin(next.start_min)}</Text>
+            {'  '}
+            {next.title || BLOCK_CATEGORIES[next.category].label.charAt(0) + BLOCK_CATEGORIES[next.category].label.slice(1).toLowerCase()}
+          </Txt>
+        </View>
+      ) : null}
     </Press>
+  );
+}
+
+/** A small tappable stat in the day card. */
+function MiniStat({ icon, value, label, onPress }: { icon: React.ComponentProps<typeof Ionicons>['name']; value: string; label: string; onPress: () => void }) {
+  const { c } = useTheme();
+  return (
+    <Press onPress={onPress} tapHaptic scaleTo={0.95} style={{ flex: 1, gap: 4 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+        <Ionicons name={icon} size={13} color={c.textDim} />
+        <Txt variant="label" style={{ fontSize: 9 }}>
+          {label}
+        </Txt>
+      </View>
+      <Txt variant="h2" style={{ fontSize: 22 }}>
+        {value}
+      </Txt>
+    </Press>
+  );
+}
+
+/** Today's habits as chips: tap to tick one off without leaving Today. */
+function HabitStrip({ habits, today }: { habits: Habit[]; today: string }) {
+  const { c, accent, onAccent } = useTheme();
+  const doneCount = habits.filter((h) => (h.checks ?? []).includes(today)).length;
+  return (
+    <View style={{ marginTop: 24 }}>
+      <Section label="HABITS" count={`${doneCount}/${habits.length}`} style={{ marginBottom: 10 }} />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 20 }} style={{ marginHorizontal: -20, paddingLeft: 20 }}>
+        {habits.map((h) => {
+          const on = (h.checks ?? []).includes(today);
+          return (
+            <Press
+              key={h.id}
+              scaleTo={0.94}
+              onPress={() => toggleHabit(h.id, today)}
+              onLongPress={() => router.push({ pathname: '/habit/[id]', params: { id: h.id } })}
+              accessibilityLabel={`${h.title}: ${on ? 'done today' : 'not done yet'}`}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                height: 44,
+                paddingLeft: 12,
+                paddingRight: 14,
+                borderRadius: 22,
+                backgroundColor: on ? accent : c.surface,
+                borderWidth: 1,
+                borderColor: on ? accent : c.border,
+              }}
+            >
+              {h.emoji ? <Text style={{ fontSize: 18 }}>{h.emoji}</Text> : null}
+              <Txt variant="title" style={{ fontSize: 14.5 }} color={on ? onAccent : c.text} numberOfLines={1}>
+                {h.title || 'Habit'}
+              </Txt>
+              <Ionicons name={on ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={on ? onAccent : c.textFaint} />
+            </Press>
+          );
+        })}
+      </ScrollView>
+    </View>
   );
 }
 
